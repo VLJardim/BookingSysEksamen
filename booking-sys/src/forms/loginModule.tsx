@@ -1,9 +1,47 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/src/lib/supabase';
+
 export default function LoginForm() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      // Redirect to home on success
+      router.push('/home');
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <form className="space-y-4">
+    <form className="space-y-4" onSubmit={handleSubmit}>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Velkommen tilbage!</h2>
+        
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
+        )}
         
         <div className="space-y-2">
             <label className="block">
@@ -12,7 +50,9 @@ export default function LoginForm() {
                 <input 
                     type="email" 
                     placeholder="E-mail adresse" 
-                    required 
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
             </label>
@@ -24,7 +64,9 @@ export default function LoginForm() {
                 <input 
                     type="password" 
                     placeholder="Adgangskode" 
-                    required 
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
             </label>
@@ -40,10 +82,11 @@ export default function LoginForm() {
         </label>
 
         <button 
-            type="submit" 
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
         >
-            Log ind
+            {loading ? 'Logger ind...' : 'Log ind'}
         </button>
 
         <button 

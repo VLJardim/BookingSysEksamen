@@ -2,7 +2,7 @@
 
 export default function BookingForm() {
     return (
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div>
             <form className="space-y-6">
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Book et lokale</h2>
 

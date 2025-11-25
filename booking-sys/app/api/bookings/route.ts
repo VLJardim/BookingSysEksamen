@@ -1,8 +1,8 @@
 // src/app/api/bookings/route.ts
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "../../src/lib/serverSupabase";
-import { bookingInsertSchema } from "../../src/lib/schemas/dbSchemas";
-import { getCurrentUserWithRole } from "../../src/lib/authHelper";
+import { createServerSupabaseClient } from "@/src/lib/serverSupabase";
+import { bookingInsertSchema } from "@/src/lib/schemas/dbSchemas";
+import { getCurrentUserWithRole } from "@/src/lib/authHelper";
 
 export async function GET() {
   const supabase = createServerSupabaseClient();

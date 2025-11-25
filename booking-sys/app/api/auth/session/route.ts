@@ -1,6 +1,6 @@
 // src/app/api/auth/session/route.ts
 import { NextResponse } from "next/server";
-import { getCurrentUserWithRole } from "../../../src/lib/authHelper";
+import { getCurrentUserWithRole } from "@/src/lib/authHelper";
 
 export async function GET() {
   const { user, role } = await getCurrentUserWithRole();
