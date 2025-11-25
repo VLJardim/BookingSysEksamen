@@ -1,4 +1,4 @@
-import LoginForm from "../src/forms/loginModule";
+import LoginForm from "@/src/forms/loginModule";
 import React from "react";
 
 export default function LoginPage() {

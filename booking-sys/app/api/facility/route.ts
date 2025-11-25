@@ -1,6 +1,6 @@
 // src/app/api/facility/route.ts
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "../../src/lib/serverSupabase";
+import { createServerSupabaseClient } from "@/src/lib/serverSupabase";
 
 export async function GET() {
   const supabase = createServerSupabaseClient();
