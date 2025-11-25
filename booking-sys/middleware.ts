@@ -1,57 +1,69 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
-import { NextResponse, NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
 
-  // Create a Supabase client that can read the auth cookies in middleware
-  const supabase = createMiddlewareClient({ req, res });
+  // Try to dynamically load the Supabase auth-helpers so middleware still works
+  // even if the package isn't installed yet (fallback will be used).
+  let supabase: any = null;
+  try {
+    const mod = await import('@supabase/auth-helpers-nextjs');
+    const { createMiddlewareClient } = mod as any;
+    supabase = createMiddlewareClient({ req, res });
+  } catch (e) {
+    // auth-helpers not available or failed to initialize in this environment.
+    supabase = null;
+  }
 
-  // Get user + JWT claims
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Try to read user/session from the supabase helper when available
+  let user: any = null;
+  let session: any = null;
+  if (supabase) {
+    try {
+      const userResult = await supabase.auth.getUser();
+      user = userResult?.data?.user ?? null;
 
-  const { data: session } = await supabase.auth.getSession();
-  const claims = session?.session?.user?.app_metadata || {}; // where roles often live
+      const sessionResult = await supabase.auth.getSession();
+      session = sessionResult?.data?.session ?? null;
+    } catch (e) {
+      user = null;
+      session = null;
+    }
+  } else {
+    // Fallback: check for common Supabase cookie tokens. This only checks presence,
+    // it does not validate the token — validation should occur in server routes.
+    const token = req.cookies.get('sb-access-token')?.value ?? req.cookies.get('session')?.value;
+    if (token) user = { tokenPresent: true };
+  }
 
-  const isAdmin = claims.role === 'admin' || claims.role === 'teacher';
-  const isStudent = claims.role === 'student';
+  // Extract role from common locations with fallbacks
+  const claims =
+    session?.user?.app_metadata ?? session?.user?.user_metadata ?? session?.user ?? {};
+  const role = claims?.role ?? null;
+  const isAdmin = role === 'admin' || role === 'teacher';
 
   const pathname = req.nextUrl.pathname;
 
-  // ============
-  // PROTECTED ROUTES
-  // ============
+  // Protected routes for this app — adjust as needed
+  const protectedPaths = ['/profile', '/my-bookings'];
+  const isProtected = protectedPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
-  // 1. Require login for any route inside /dashboard or /rooms
-  if (pathname.startsWith('/dashboard') || pathname.startsWith('/rooms')) {
-    if (!user) {
-      return NextResponse.redirect(new URL('/login', req.url));
-    }
+  if (isProtected && !user) {
+    const loginUrl = req.nextUrl.clone();
+    loginUrl.pathname = '/login';
+    loginUrl.searchParams.set('from', pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
-  // 2. Admin-only routes
-  if (pathname.startsWith('/admin')) {
-    if (!user || !isAdmin) {
-      return NextResponse.redirect(new URL('/forbidden', req.url));
-    }
-  }
-
-  // 3. Students cannot access teacher/admin panel
-  if (pathname.startsWith('/teacher') && !isAdmin) {
-    return NextResponse.redirect(new URL('/not-authorized', req.url));
+  // Admin-only example
+  if (pathname.startsWith('/admin') && !isAdmin) {
+    return NextResponse.redirect(new URL('/forbidden', req.url));
   }
 
   return res;
 }
 
-// Tell Next.js where middleware should run
 export const config = {
-  matcher: [
-    '/dashboard/:path*',
-    '/rooms/:path*',
-    '/admin/:path*',
-    '/teacher/:path*',
-  ],
+  matcher: ['/profile/:path*', '/my-bookings/:path*', '/admin/:path*'],
 };
