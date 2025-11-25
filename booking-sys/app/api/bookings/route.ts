@@ -1,11 +1,11 @@
 // src/app/api/bookings/route.ts
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/src/lib/serverSupabase";
-import { bookingInsertSchema } from "@/src/lib/schemas/dbSchemas";
-import { getCurrentUserWithRole } from "@/src/lib/authHelper";
+import adminSupabase from "../../../src/lib/serverSupabase";
+import { bookingCreateSchema } from "../../../src/lib/schemas/dbSchemas";
+import { getCurrentUserWithRole } from "../../../src/lib/authHelper";
 
 export async function GET() {
-  const supabase = createServerSupabaseClient();
+  const supabase = adminSupabase;
 
   const { data, error } = await supabase
     .from("booking")
@@ -35,9 +35,7 @@ export async function POST(req: Request) {
   const body = await req.json();
 
   // We don't want the client to decide "owner" → we control it here
-  const parsed = bookingInsertSchema
-    .omit({ owner: true, booking_id: true }) // we set both on server
-    .safeParse(body);
+  const parsed = bookingCreateSchema.safeParse(body);
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -46,7 +44,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const supabase = createServerSupabaseClient();
+  const supabase = adminSupabase;
 
   const { data, error } = await supabase
     .from("booking")

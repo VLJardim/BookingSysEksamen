@@ -1,9 +1,9 @@
 // src/app/api/facility/route.ts
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/src/lib/serverSupabase";
+import adminSupabase from "../../../src/lib/serverSupabase";
 
 export async function GET() {
-  const supabase = createServerSupabaseClient();
+  const supabase = adminSupabase;
 
   const { data, error } = await supabase
     .from("facility")

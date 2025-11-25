@@ -1,8 +1,8 @@
-// src/lib/authHelpers.ts
-import { createServerSupabaseClient } from "./serverSupabase";
+// src/lib/authHelper.ts
+import adminSupabase from "./serverSupabase";
 
 export async function getCurrentUserWithRole() {
-  const supabase = createServerSupabaseClient();
+  const supabase = adminSupabase;
 
   const {
     data: { user },

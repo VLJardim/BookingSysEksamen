@@ -1,15 +1,15 @@
 // src/app/api/bookings/[id]/route.ts
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/src/lib/serverSupabase";
-import { bookingInsertSchema } from "@/src/lib/schemas/dbSchemas";
-import { getCurrentUserWithRole } from "@/src/lib/authHelper";
+import adminSupabase from "../../../../src/lib/serverSupabase";
+import { bookingCreateSchema } from "../../../../src/lib/schemas/dbSchemas";
+import { getCurrentUserWithRole } from "../../../../src/lib/authHelper";
 
 type RouteParams = {
   params: { id: string };
 };
 
 export async function GET(_req: Request, { params }: RouteParams) {
-  const supabase = createServerSupabaseClient();
+  const supabase = adminSupabase;
 
   const { data, error } = await supabase
     .from("booking")
@@ -38,7 +38,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = createServerSupabaseClient();
+  const supabase = adminSupabase;
 
   // 1) Get existing booking
   const { data: existing, error: fetchError } = await supabase
@@ -73,9 +73,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   const body = await req.json();
 
   // Partial update: all fields optional, but still validated if present.
-  const updateSchema = bookingInsertSchema
-    .omit({ owner: true, booking_id: true })
-    .partial();
+  const updateSchema = bookingCreateSchema.partial();
 
   const parsed = updateSchema.safeParse(body);
 
@@ -110,7 +108,7 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = createServerSupabaseClient();
+  const supabase = adminSupabase;
 
   // First fetch to check owner + existence
   const { data: existing, error: fetchError } = await supabase
