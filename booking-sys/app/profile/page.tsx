@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import NavBar from '@/src/components/navBar';
-import { supabase } from '@/src/lib/supabase';
+import getBrowserSupabase from '@/src/lib/supabase';
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
@@ -12,6 +12,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function getUser() {
+      const supabase = getBrowserSupabase();
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
     }
@@ -19,6 +20,7 @@ export default function ProfilePage() {
   }, []);
 
   const handleLogout = async () => {
+    const supabase = getBrowserSupabase();
     await supabase.auth.signOut();
     router.push('/login');
   };

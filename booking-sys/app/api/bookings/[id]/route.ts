@@ -1,6 +1,6 @@
 // src/app/api/bookings/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import adminSupabase from "../../../../src/lib/serverSupabase";
+import getAdminSupabase from "../../../../src/lib/serverSupabase";
 import { bookingCreateSchema } from "../../../../src/lib/schemas/dbSchemas";
 import { getCurrentUserWithRole } from "../../../../src/lib/authHelper";
 
@@ -10,7 +10,7 @@ type RouteParams = {
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const params = await context.params
-  const supabase = adminSupabase;
+  const supabase = getAdminSupabase();
 
   const { data, error } = await supabase
     .from("booking")
@@ -40,7 +40,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = adminSupabase;
+  const supabase = getAdminSupabase();
 
   // 1) Get existing booking
   const { data: existing, error: fetchError } = await supabase
@@ -111,7 +111,7 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = adminSupabase;
+  const supabase = getAdminSupabase();
 
   // First fetch to check owner + existence
   const { data: existing, error: fetchError } = await supabase

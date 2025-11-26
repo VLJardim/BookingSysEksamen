@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import NavBar from '@/src/components/navBar';
-import { supabase } from '@/src/lib/supabase';
+import getBrowserSupabase from '@/src/lib/supabase';
 
 export default function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -41,6 +41,7 @@ export default function ChangePasswordPage() {
     setLoading(true);
 
     try {
+      const supabase = getBrowserSupabase();
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });

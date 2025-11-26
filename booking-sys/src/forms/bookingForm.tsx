@@ -1,4 +1,6 @@
-'use client';
+"use client";
+
+import { useRouter } from "next/navigation";
 
 // Generate time options in 15-minute intervals
 const generateTimeOptions = () => {
@@ -14,11 +16,32 @@ const generateTimeOptions = () => {
 };
 
 export default function BookingForm() {
+    const router = useRouter();
     const timeOptions = generateTimeOptions();
     
+    async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const formData = new FormData(form);
+        const date = String(formData.get('date') || '').trim();
+        const start = String(formData.get('start') || '').trim();
+        const end = String(formData.get('end') || '').trim();
+
+        if (!date) return; // date input is required
+
+        let url = `/home/${encodeURIComponent(date)}`;
+        const params = new URLSearchParams();
+        if (start) params.set('start', start);
+        if (end) params.set('end', end);
+        const qs = params.toString();
+        if (qs) url += `?${qs}`;
+
+        router.push(url);
+    }
+
     return (
         <div>
-            <form className="space-y-6">
+            <form className="space-y-6" onSubmit={onSubmit}>
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Book et lokale</h2>
 
                 <div className="space-y-2">
@@ -29,6 +52,7 @@ export default function BookingForm() {
                         input?.showPicker?.();
                     }}>
                         <input 
+                            name="date"
                             type="date" 
                             required 
                             className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
@@ -41,6 +65,7 @@ export default function BookingForm() {
                         <span className="block text-sm font-medium text-gray-700 mb-1">Starttidspunkt</span>
                         <small className="block text-xs text-gray-600 mb-2">OBS! Du kan maks booke et lokale i 4 timer.</small>
                         <select 
+                            name="start"
                             className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
                             <option value="">Vælg tidspunkt</option>
@@ -56,6 +81,7 @@ export default function BookingForm() {
                         <span className="block text-sm font-medium text-gray-700 mb-1">Sluttidspunkt</span>
                         <small className="block text-xs text-gray-600 mb-2">OBS! Du kan maks booke et lokale i 4 timer.</small>
                         <select 
+                            name="end"
                             className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
                             <option value="">Vælg tidspunkt</option>

@@ -1,11 +1,11 @@
 // src/app/api/bookings/route.ts
 import { NextResponse } from "next/server";
-import adminSupabase from "../../../src/lib/serverSupabase";
+import getAdminSupabase from "../../../src/lib/serverSupabase";
 import { bookingCreateSchema } from "../../../src/lib/schemas/dbSchemas";
 import { getCurrentUserWithRole } from "../../../src/lib/authHelper";
 
 export async function GET() {
-  const supabase = adminSupabase;
+  const supabase = getAdminSupabase();
 
   const { data, error } = await supabase
     .from("booking")
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const supabase = adminSupabase;
+  const supabase = getAdminSupabase();
 
   const { data, error } = await supabase
     .from("booking")

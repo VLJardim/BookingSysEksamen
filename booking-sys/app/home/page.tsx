@@ -6,7 +6,7 @@ import NavBar from "@/src/components/navBar";
 import { Group, Text } from "@mantine/core";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { supabase } from "@/src/lib/supabase";
+import getBrowserSupabase from "@/src/lib/supabase";
 
 export default function HomePage() {
 
@@ -14,6 +14,7 @@ export default function HomePage() {
 
     useEffect(() => {
         async function fetchBookings() {
+            const supabase = getBrowserSupabase();
             const { data, error } = await supabase
                 .from('booking')
                 .select('*')

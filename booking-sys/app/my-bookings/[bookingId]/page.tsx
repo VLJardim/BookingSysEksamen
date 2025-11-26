@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import NavBar from "@/src/components/navBar";
-import { supabase } from "@/src/lib/supabase";
+import getBrowserSupabase from "@/src/lib/supabase";
 import BookingCard from "@/src/components/bookingCard";
 
 export default function BookingDetailsPage({ params }: { params: { bookingId: string } }) {
@@ -12,6 +12,7 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
 
     useEffect(() => {
         async function fetchBooking() {
+            const supabase = getBrowserSupabase();
             const { data, error } = await supabase
                 .from('booking')
                 .select('*')

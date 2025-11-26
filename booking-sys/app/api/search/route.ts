@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import adminSupabase from "../../../src/lib/serverSupabase";
+import getAdminSupabase from "../../../src/lib/serverSupabase";
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     }
     const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
 
-    const supabase = adminSupabase;
+    const supabase = getAdminSupabase();
 
     const { data, error } = await supabase
       .from("booking")

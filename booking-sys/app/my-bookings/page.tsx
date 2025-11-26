@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import NavBar from "@/src/components/navBar";
-import { supabase } from "@/src/lib/supabase";
+import getBrowserSupabase from "@/src/lib/supabase";
 import { useRouter } from "next/navigation";
 import BookingCard from "@/src/components/bookingCard";
 import Link from "next/link";
@@ -13,6 +13,7 @@ export default function MyBookingsPage() {
 
     useEffect(() => {
         async function getUser() {
+            const supabase = getBrowserSupabase();
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 setUserId(user.id);
@@ -25,6 +26,7 @@ export default function MyBookingsPage() {
         if (!userId) return;
 
         async function fetchBookings() {
+            const supabase = getBrowserSupabase();
             const { data, error } = await supabase
                 .from('booking')
                 .select('*')

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/src/lib/supabase";
+import getBrowserSupabase from "@/src/lib/supabase";
 
 export default function ResetPasswordForm() {
 	const [email, setEmail] = useState("");
@@ -17,6 +17,7 @@ export default function ResetPasswordForm() {
 
 		try {
 			// Send a password reset email using Supabase
+			const supabase = getBrowserSupabase();
 			const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/login` : undefined;
 			const { data, error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
