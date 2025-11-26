@@ -1,5 +1,5 @@
 // src/app/api/bookings/[id]/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import adminSupabase from "../../../../src/lib/serverSupabase";
 import { bookingCreateSchema } from "../../../../src/lib/schemas/dbSchemas";
 import { getCurrentUserWithRole } from "../../../../src/lib/authHelper";
@@ -8,7 +8,8 @@ type RouteParams = {
   params: { id: string };
 };
 
-export async function GET(_req: Request, { params }: RouteParams) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params
   const supabase = adminSupabase;
 
   const { data, error } = await supabase
@@ -31,7 +32,8 @@ export async function GET(_req: Request, { params }: RouteParams) {
   return NextResponse.json(data, { status: 200 });
 }
 
-export async function PATCH(req: Request, { params }: RouteParams) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params
   const { user, role } = await getCurrentUserWithRole();
 
   if (!user) {
@@ -70,7 +72,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   }
 
   // 3) Validate payload
-  const body = await req.json();
+  const body = await request.json();
 
   // Partial update: all fields optional, but still validated if present.
   const updateSchema = bookingCreateSchema.partial();
@@ -101,7 +103,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   return NextResponse.json(data, { status: 200 });
 }
 
-export async function DELETE(_req: Request, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params
   const { user, role } = await getCurrentUserWithRole();
 
   if (!user) {
