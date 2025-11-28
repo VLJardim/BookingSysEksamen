@@ -15,12 +15,12 @@ export async function getCurrentUserWithRole() {
 
   const { data: userlistRow } = await supabase
     .from("userlist")
-    .select("role")
-    .eq("id", user.id)
+    .select("user_role")
+    .eq("user_id", user.id)
     .maybeSingle();
 
   const role =
-    (userlistRow?.role as "student" | "teacher" | undefined) ?? "student";
+    (userlistRow?.user_role as "student" | "teacher" | undefined) ?? "student";
 
   return { user, role };
 }
