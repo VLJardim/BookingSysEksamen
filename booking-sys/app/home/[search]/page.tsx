@@ -1,9 +1,12 @@
+// app/home/[search]/page.tsx
 "use client";
-import { useParams } from "next/navigation";
+
 import React, { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import NavBar from "@/src/components/navBar";
 import BookingCard from "@/src/components/bookingCard";
 import getBrowserSupabase from "@/src/lib/supabase";
+import ConfirmationModal from "@/src/components/confirmationModal";
 
 type RouteParams = { search: string };
 
@@ -18,7 +21,7 @@ type Facility = {
   title: string;
   capacity?: string | null;
   description?: string | null;
-  facility_type?: string | null; // 👈 we now also use this
+  facility_type?: string | null;
   slots: Slot[];
 };
 
@@ -35,7 +38,21 @@ export default function SearchPage() {
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<Role>(null);
 
-  // 1) Hent brugerens rolle fra userlist
+  // modal til feedback efter booking / fejl
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalConfig, setModalConfig] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    confirmColor: "blue" | "red";
+  }>({
+    title: "",
+    message: "",
+    confirmLabel: "OK",
+    confirmColor: "blue",
+  });
+
+  // 1) Hent brugerens rolle (student/teacher) fra userlist via Supabase
   useEffect(() => {
     const supabase = getBrowserSupabase();
 
@@ -65,7 +82,7 @@ export default function SearchPage() {
     });
   }, []);
 
-  // 2) Hent alle ledige lokaler for datoen fra API'en
+  // 2) Hent alle ledige lokaler for den valgte dato via vores API (/api/search)
   useEffect(() => {
     if (!searchDate) return;
 
@@ -97,7 +114,7 @@ export default function SearchPage() {
     fetchData();
   }, [searchDate]);
 
-  // 3) Filtrer kun lærerværelser fra hvis brugeren er student
+  // 3) Filtrer lærer-områder fra, hvis brugeren er student
   const visibleFacilities = useMemo(() => {
     if (role !== "student") return facilities;
 
@@ -111,100 +128,193 @@ export default function SearchPage() {
       const isTeacherOnlyType =
         type === "open learning" || type === "undervisning";
 
-      // studerende må IKKE se disse
       if (isTeacherOnlyDesc || isTeacherOnlyType) return false;
-
       return true;
     });
   }, [facilities, role]);
 
-  // 4) Render UI (som før, men brug visibleFacilities)
+  // 4) Booking af et slot → ændrer row i Supabase & viser modal
+  const handleBookSlot = async (bookingId: string) => {
+    try {
+      const supabase = getBrowserSupabase();
+      setError(null);
+
+      // tjek om bruger er logget ind
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        setModalConfig({
+          title: "Ikke logget ind",
+          message: "Du skal være logget ind for at booke et lokale.",
+          confirmLabel: "OK",
+          confirmColor: "blue",
+        });
+        setModalOpen(true);
+        return;
+      }
+
+      // forsøg at markere slot som booket
+      const { data, error } = await supabase
+        .from("booking")
+        .update({
+          role: "not_available",
+          owner: user.id,
+        })
+        .eq("booking_id", bookingId)
+        .eq("role", "available") // beskytter mod dobbelt-booking
+        .select("booking_id")
+        .maybeSingle();
+
+      if (error || !data) {
+        console.error("Booking error", error);
+        setModalConfig({
+          title: "Kunne ikke booke",
+          message:
+            "Tidsrummet kunne ikke bookes. Det kan være, at en anden allerede har taget det.",
+          confirmLabel: "OK",
+          confirmColor: "red",
+        });
+        setModalOpen(true);
+        return;
+      }
+
+      // fjern slot fra listen i UI'et
+      setFacilities((prev) =>
+        prev.map((f) => ({
+          ...f,
+          slots: f.slots.filter((s) => s.booking_id !== bookingId),
+        }))
+      );
+
+      // vis succes-modal
+      setModalConfig({
+        title: "Booking gennemført",
+        message:
+          "Dit lokale er nu booket. Du kan se det under 'Mine bookinger'.",
+        confirmLabel: "OK",
+        confirmColor: "blue",
+      });
+      setModalOpen(true);
+    } catch (err) {
+      console.error("Uventet booking-fejl:", err);
+      setModalConfig({
+        title: "Fejl",
+        message: "Der skete en uventet fejl under booking. Prøv igen.",
+        confirmLabel: "OK",
+        confirmColor: "red",
+      });
+      setModalOpen(true);
+    }
+  };
+
+  // 5) Render UI
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <NavBar />
+    <>
+      <div className="flex min-h-screen bg-gray-50">
+        <NavBar />
 
-      <main className="flex-1 p-8">
-        <header className="mb-8">
-          <h1 className="text-2xl font-bold mb-2">Find ledige lokaler</h1>
-          <p className="text-gray-600">
-            Søgeresultat for: <span className="font-medium">{searchDate}</span>
-          </p>
-        </header>
+        <main className="flex-1 p-8">
+          <header className="mb-8">
+            <h1 className="text-2xl font-bold mb-2">Find ledige lokaler</h1>
+            <p className="text-gray-600">
+              Søgeresultat for:{" "}
+              <span className="font-medium">{searchDate}</span>
+            </p>
+          </header>
 
-        {loading && <p>Henter ledige tider...</p>}
-        {error && <p className="text-red-600 mb-4">Fejl: {error}</p>}
+          {loading && <p>Henter ledige tider...</p>}
+          {error && <p className="text-red-600 mb-4">Fejl: {error}</p>}
 
-        {!loading && !error && visibleFacilities.length === 0 && (
-          <p className="text-gray-600">
-            Der blev ikke fundet ledige lokaler på denne dato.
-          </p>
-        )}
+          {!loading && !error && visibleFacilities.length === 0 && (
+            <p className="text-gray-600">
+              Der blev ikke fundet ledige lokaler på denne dato.
+            </p>
+          )}
 
-        {!loading && !error && visibleFacilities.length > 0 && (
-          <div className="space-y-10">
-            {visibleFacilities.map((facility) => (
-              <section key={facility.facility_id}>
-                <h2 className="text-xl font-semibold mb-1">
-                  {facility.title}
-                </h2>
+          {!loading && !error && visibleFacilities.length > 0 && (
+            <div className="space-y-10">
+              {visibleFacilities.map((facility) => (
+                <section key={facility.facility_id}>
+                  <h2 className="text-xl font-semibold mb-1">
+                    {facility.title}
+                  </h2>
 
-                {facility.description && (
-                  <p className="text-gray-600 mb-1">
-                    {facility.description}
-                  </p>
-                )}
+                  {facility.description && (
+                    <p className="text-gray-600 mb-1">
+                      {facility.description}
+                    </p>
+                  )}
 
-                {facility.capacity && (
-                  <p className="text-gray-500 text-sm mb-4">
-                    Kapacitet: {facility.capacity}
-                  </p>
-                )}
+                  {facility.capacity && (
+                    <p className="text-gray-500 text-sm mb-4">
+                      Kapacitet: {facility.capacity}
+                    </p>
+                  )}
 
-                {facility.slots.length === 0 ? (
-                  <p className="text-gray-500 text-sm">
-                    Ingen ledige tider for dette lokale.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {facility.slots.map((slot) => {
-                      const start = new Date(slot.starts_at);
-                      const end = slot.ends_at ? new Date(slot.ends_at) : null;
+                  {facility.slots.length === 0 ? (
+                    <p className="text-gray-500 text-sm">
+                      Ingen ledige tider for dette lokale.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {facility.slots.map((slot) => {
+                        const start = new Date(slot.starts_at);
+                        const end = slot.ends_at
+                          ? new Date(slot.ends_at)
+                          : null;
 
-                      const dateLabel = start.toLocaleDateString("da-DK", {
-                        weekday: "short",
-                        day: "2-digit",
-                        month: "2-digit",
-                      });
+                        const dateLabel = start.toLocaleDateString("da-DK", {
+                          weekday: "short",
+                          day: "2-digit",
+                          month: "2-digit",
+                        });
 
-                      const timeLabel =
-                        start.toLocaleTimeString("da-DK", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }) +
-                        (end
-                          ? " - " +
-                            end.toLocaleTimeString("da-DK", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
-                          : "");
+                        const timeLabel =
+                          start.toLocaleTimeString("da-DK", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }) +
+                          (end
+                            ? " - " +
+                              end.toLocaleTimeString("da-DK", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "");
 
-                      return (
-                        <BookingCard
-                          key={slot.booking_id}
-                          roomName={facility.title}
-                          date={dateLabel}
-                          time={timeLabel}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
+                        return (
+                          <BookingCard
+                            key={slot.booking_id}
+                            bookingId={slot.booking_id}
+                            roomName={facility.title}
+                            date={dateLabel}
+                            time={timeLabel}
+                            onBook={handleBookSlot}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
+
+      <ConfirmationModal
+        open={modalOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        confirmLabel={modalConfig.confirmLabel}
+        cancelLabel="Luk"
+        confirmColor={modalConfig.confirmColor}
+        onConfirm={() => setModalOpen(false)}
+        onClose={() => setModalOpen(false)}
+      />
+    </>
   );
 }
