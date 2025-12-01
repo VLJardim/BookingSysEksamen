@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import NavBar from "@/src/components/navBar";
 import getBrowserSupabase from "@/src/lib/supabase";
 import ConfirmationModal from "@/src/components/confirmationModal";
 
@@ -131,10 +130,7 @@ export default function MyBookingsPage() {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <NavBar />
-
-      <div className="flex-1 bg-gray-50 py-8 px-4">
+    <div className="bg-gray-50 py-8 px-4 min-h-screen">
         <div className="mx-auto max-w-4xl">
           <h1 className="mb-6 text-3xl font-bold">Mine bookinger</h1>
 
@@ -180,10 +176,9 @@ export default function MyBookingsPage() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* Modal til bekræftelse af annullering */}
-      <ConfirmationModal
+        {/* Modal til bekræftelse af annullering */}
+        <ConfirmationModal
         isOpen={bookingToCancel !== null}
         title="Annuller booking?"
         message={

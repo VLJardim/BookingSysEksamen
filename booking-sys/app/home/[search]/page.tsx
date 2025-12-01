@@ -3,7 +3,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import NavBar from "@/src/components/navBar";
 import BookingCard from "@/src/components/bookingCard";
 import getBrowserSupabase from "@/src/lib/supabase";
 import ConfirmationModal from "@/src/components/confirmationModal";
@@ -277,10 +276,7 @@ export default function SearchPage() {
 
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <NavBar />
-
-      <main className="flex-1 p-8">
+    <main className="min-h-screen bg-gray-50 p-8">
         <header className="mb-8">
           <h1 className="mb-2 text-2xl font-bold">Find ledige lokaler</h1>
           <p className="text-gray-600">
@@ -364,7 +360,6 @@ export default function SearchPage() {
             ))}
           </div>
         )}
-      </main>
 
       {/* Booking success / error modal */}
       <ConfirmationModal
@@ -375,6 +370,6 @@ export default function SearchPage() {
         cancelLabel={bookingModal?.cancelLabel}
         onClose={() => setBookingModal(null)}
       />
-    </div>
+    </main>
   );
 }

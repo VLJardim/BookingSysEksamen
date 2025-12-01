@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import NavBar from '@/src/components/navBar';
 
 export default function SecurityInfoPage() {
   const [recoveryMethod, setRecoveryMethod] = useState('');
@@ -19,10 +18,7 @@ export default function SecurityInfoPage() {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <NavBar />
-      
-      <div className="flex-1 bg-gray-50 py-8 px-4">
+    <div className="bg-gray-50 py-8 px-4 min-h-screen">
         <div className="max-w-2xl mx-auto">
           <button 
             onClick={() => router.back()}
@@ -118,6 +114,5 @@ export default function SecurityInfoPage() {
           </div>
         </div>
       </div>
-    </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import BookingForm from "@/src/forms/bookingForm";
 import React from "react";
-import NavBar from "@/src/components/navBar";
 import { Group, Text } from "@mantine/core";
 import Link from "next/link";
 import { useState, useEffect } from "react";
@@ -28,9 +27,7 @@ export default function HomePage() {
     }, []); 
 
     return (
-        <div className="flex min-h-screen">
-            <NavBar />
-
+        <div className="flex">
             <div className="flex-1 py-8 px-20">
                 <div>
                     <BookingForm />

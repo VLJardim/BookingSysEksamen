@@ -4,7 +4,6 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import NavBar from "@/src/components/navBar";
 import getBrowserSupabase from "@/src/lib/supabase";
 import BookingCard from "@/src/components/bookingCard";
 
@@ -32,10 +31,7 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
     }, [bookingId]);
     
     return (
-        <div className="flex min-h-screen">
-            <NavBar />
-
-            <div className="flex-1 py-8 px-20">
+        <div className="py-8 px-20 min-h-screen">
                 {booking ? (
                     <div className="bg-white p-8 rounded-lg shadow-md max-w-2xl">
                         <h1 className="text-3xl font-bold mb-6">{booking.title}</h1>
@@ -66,7 +62,6 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
                 ) : (
                     <p>Indlæser...</p>
                 )}
-            </div>
         </div>
     );
 }

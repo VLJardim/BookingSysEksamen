@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import NavBar from '@/src/components/navBar';
 import getBrowserSupabase from '@/src/lib/supabase';
 
 export default function ProfilePage() {
@@ -26,10 +25,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <NavBar />
-      
-      <div className="flex-1 bg-gray-50 py-8 px-4">
+    <div className="bg-gray-50 py-8 px-4 min-h-screen">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold mb-8">Min profil</h1>
           
@@ -104,6 +100,5 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-    </div>
   );
 }

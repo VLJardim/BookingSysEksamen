@@ -83,9 +83,9 @@ export default function BookingForm() {
 
         <div className="space-y-2">
           <span className="block text-sm font-medium text-gray-700 mb-1">
-            Dato *
+            Dato <span className="text-red-600">*</span>
           </span>
-          <small className="block text-xs text-gray-600 mb-2">
+          <small className="block text-xs text-gray-500 mb-2">
             OBS! Du kan kun booke et lokale i hverdage mellem 8-16.
           </small>
           <div
@@ -103,7 +103,7 @@ export default function BookingForm() {
               min={todayStr}
               value={date}
               onChange={handleDateChange}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+              className="block w-full max-w-md px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer text-gray-500"
             />
           </div>
         </div>
@@ -113,12 +113,12 @@ export default function BookingForm() {
             <span className="block text-sm font-medium text-gray-700 mb-1">
               Starttidspunkt
             </span>
-            <small className="block text-xs text-gray-600 mb-2">
+            <small className="block text-xs text-gray-500 mb-2">
               OBS! Du kan maks booke et lokale i 4 timer.
             </small>
             <select
               name="start"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full max-w-xs px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-500"
             >
               <option value="">Vælg tidspunkt</option>
               {timeOptions.map((time) => (
@@ -135,12 +135,12 @@ export default function BookingForm() {
             <span className="block text-sm font-medium text-gray-700 mb-1">
               Sluttidspunkt
             </span>
-            <small className="block text-xs text-gray-600 mb-2">
+            <small className="block text-xs text-gray-500 mb-2">
               OBS! Du kan maks booke et lokale i 4 timer.
             </small>
             <select
               name="end"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full max-w-xs px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-500"
             >
               <option value="">Vælg tidspunkt</option>
               {timeOptions.map((time) => (
@@ -159,7 +159,7 @@ export default function BookingForm() {
             </span>
             <select
               defaultValue="4-8"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full max-w-xs px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-500"
             >
               <option value="" disabled>
                 Vælg kapacitet
@@ -174,7 +174,7 @@ export default function BookingForm() {
 
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
+          className="max-w-xs bg-blue-600 text-white py-3 px-8 rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
         >
           Søg
         </button>
