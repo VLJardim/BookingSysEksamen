@@ -25,8 +25,17 @@ export default function LoginForm() {
 
       if (error) throw error;
 
-      // Redirect to home on success
-      router.push('/home');
+      // Redirect based on email domain
+      if (email.endsWith('@ek.dk')) {
+        // Teacher email
+        router.push('/teacher-home');
+      } else if (email.endsWith('@stud.ek.dk')) {
+        // Student email
+        router.push('/student-home');
+      } else {
+        // Fallback to student home for other emails
+        router.push('/student-home');
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {

@@ -66,7 +66,7 @@ export default function BookingForm() {
 
     if (!date) return; // guard: date is required and must be weekday
 
-    let url = `/home/${encodeURIComponent(date)}`;
+    let url = `/student-home/${encodeURIComponent(date)}`;
     const params = new URLSearchParams();
     if (start) params.set("start", start);
     if (end) params.set("end", end);

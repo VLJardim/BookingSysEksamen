@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import getBrowserSupabase from "@/src/lib/supabase";
 
-export default function HomePage() {
+export default function TeacherHomePage() {
 
     const [bookings, setBookings] = useState<any[]>([]);
 
@@ -41,7 +41,7 @@ export default function HomePage() {
                 ) : (
                     bookings.map((booking) => (
                         <Link 
-                            href={`/home/${booking.booking_id}`} 
+                            href={`/teacher-home/${booking.booking_id}`} 
                             key={booking.booking_id}
                             className="block mb-4 p-4 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
                         >

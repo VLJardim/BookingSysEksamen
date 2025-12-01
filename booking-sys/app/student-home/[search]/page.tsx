@@ -1,4 +1,4 @@
-// src/app/home/[search]/page.tsx
+// src/app/student-home/[search]/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";

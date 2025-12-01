@@ -14,7 +14,7 @@ export default function NavBar({ showLinks = true }: NavBarProps) {
       {showLinks && (
         <Stack gap="xs">
           <Link 
-            href="/home" 
+            href="/student-home" 
             className="flex items-center gap-3 bg-white rounded-lg p-4 hover:bg-gray-50 transition-colors"
           >
             <IconHome size={24} className="text-blue-600" />
