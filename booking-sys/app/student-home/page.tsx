@@ -35,21 +35,47 @@ export default function HomePage() {
             </div>
 
             <div className="w-80 bg-white p-6">
-                <h2 className="text-xl font-bold mb-4">Kommende bookinger</h2>
+                <h2 className="text-xl font-bold mb-6">Kommende bookinger</h2>
                 {bookings.length === 0 ? (
                     <p className="text-gray-500">Ingen kommende bookinger</p>
                 ) : (
-                    bookings.map((booking) => (
-                        <Link 
-                            href={`/student-home/${booking.booking_id}`} 
-                            key={booking.booking_id}
-                            className="block mb-4 p-4 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
-                        >
-                            <p className="font-semibold">{booking.title}</p>
-                            <p className="text-sm text-gray-600">Start: {new Date(booking.starts_at).toLocaleString('da-DK')}</p>
-                            <p className="text-sm text-gray-600">Slut: {booking.ends_at ? new Date(booking.ends_at).toLocaleString('da-DK') : 'Ikke angivet'}</p>
-                        </Link>
-                    ))
+                    bookings.map((booking) => {
+                        const startDate = new Date(booking.starts_at);
+                        const endDate = booking.ends_at ? new Date(booking.ends_at) : null;
+                        
+                        const dateLabel = startDate.toLocaleDateString('da-DK', {
+                            day: 'numeric',
+                            month: 'long'
+                        });
+                        
+                        const timeLabel = `${startDate.toLocaleTimeString('da-DK', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })}-${endDate ? endDate.toLocaleTimeString('da-DK', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        }) : 'Ikke angivet'}`;
+                        
+                        return (
+                            <div 
+                                key={booking.booking_id}
+                                className="mb-6 p-4 bg-gray-50 rounded-lg"
+                            >
+                                <h3 className="font-bold text-lg mb-3">{dateLabel}</h3>
+                                <div className="space-y-1 mb-4">
+                                    <p className="text-sm text-gray-700">{booking.title}</p>
+                                    <p className="text-sm text-gray-700">Tidsrum: {timeLabel}</p>
+                                    <p className="text-sm text-gray-700">Kapacitet: {booking.capacity || 'Ikke angivet'}</p>
+                                </div>
+                                <Link 
+                                    href={`/student-home/${booking.booking_id}`}
+                                    className="block w-full bg-[#6B8CAE] text-white text-center py-3 rounded-full hover:bg-[#5A7A9A] transition-colors font-medium"
+                                >
+                                    Se booking
+                                </Link>
+                            </div>
+                        );
+                    })
                 )}
             </div>
         </div>

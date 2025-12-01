@@ -59,6 +59,10 @@ export default function LoginForm() {
       } else {
         throw new Error('Brugeren har ingen gyldig rolle tilknyttet.');
       }
+<<<<<<< HEAD
+=======
+
+>>>>>>> fa3c4a94afaf776eace27b434b721bb90ce06c7e
     } catch (err: any) {
       setError(err.message || 'Login fejlede.');
     } finally {
@@ -97,6 +101,7 @@ export default function LoginForm() {
         </label>
       </div>
 
+<<<<<<< HEAD
       <div className="space-y-2">
         <label className="block">
           <span className="block text-sm font-medium text-gray-700">
@@ -112,6 +117,16 @@ export default function LoginForm() {
           />
         </label>
       </div>
+=======
+        <div className="flex gap-4">
+            <button 
+                type="submit"
+                disabled={loading}
+                className="bg-[#6B8CAE] text-white py-3 px-8 rounded-full hover:bg-[#5A7A9A] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+            >
+                {loading ? 'Logger ind...' : 'Log ind'}
+            </button>
+>>>>>>> fa3c4a94afaf776eace27b434b721bb90ce06c7e
 
       <a href="#" className="text-sm text-blue-600 hover:text-blue-800 block">
         Har du glemt din adgangskode?
