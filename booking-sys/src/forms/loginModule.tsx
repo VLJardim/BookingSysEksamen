@@ -32,10 +32,8 @@ export default function LoginForm() {
       } else if (email.endsWith('@stud.ek.dk')) {
         // Student email
         router.push('/student-home');
-      } else {
-        // Fallback to student home for other emails
-        router.push('/student-home');
       }
+      
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {
