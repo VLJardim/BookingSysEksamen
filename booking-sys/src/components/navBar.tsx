@@ -10,7 +10,7 @@ interface NavBarProps {
 
 export default function NavBar({ showLinks = true }: NavBarProps) {
   return (
-    <Stack gap="md" p="md" bg="blue.6" className="w-64 min-h-screen">
+    <Stack gap="md" p="md" bg="#6B8CAE" className="w-64 min-h-screen">
       {showLinks && (
         <Stack gap="xs">
           <Link 

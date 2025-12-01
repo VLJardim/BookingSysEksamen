@@ -33,7 +33,7 @@ export default function LoginForm() {
         // Student email
         router.push('/student-home');
       }
-      
+
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {
@@ -93,7 +93,7 @@ export default function LoginForm() {
             <button 
                 type="submit"
                 disabled={loading}
-                className="bg-blue-600 text-white py-3 px-8 rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+                className="bg-[#6B8CAE] text-white py-3 px-8 rounded-full hover:bg-[#5A7A9A] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
             >
                 {loading ? 'Logger ind...' : 'Log ind'}
             </button>
