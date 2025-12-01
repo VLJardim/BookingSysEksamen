@@ -1,7 +1,7 @@
 // src/app/teacher-home/[search]/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import BookingCard from "@/src/components/bookingCard";
 import getBrowserSupabase from "@/src/lib/supabase";
@@ -86,7 +86,7 @@ export default function TeacherSearchPage() {
   // Teachers see ALL facilities (no filtering)
   const visibleFacilities = facilities;
 
-  // Book slot direkte via Supabase
+  // Book / override slot direkte via Supabase
   const handleBookSlot = async (bookingId: string) => {
     try {
       const supabase = getBrowserSupabase();
@@ -120,7 +120,7 @@ export default function TeacherSearchPage() {
 
       const existing = existingData as BookingRow | null;
 
-      if (fetchError) {
+      if (fetchError || !existing) {
         console.error("Failed to fetch booking slot", fetchError);
         setBookingModal({
           title: "Kunne ikke booke",
@@ -132,17 +132,8 @@ export default function TeacherSearchPage() {
         return;
       }
 
-      if (!existing || existing.role !== "available") {
-        setBookingModal({
-          title: "Kunne ikke booke",
-          message: "Tidsrummet er allerede booket af en anden.",
-          confirmLabel: "OK",
-          cancelLabel: "Luk",
-        });
-        return;
-      }
-
-      // Update the row
+      // Forsøg altid at sætte role = not_available og owner = lærerens id.
+      // Din trigger enforce_booking_rules() afgør, om det er OK (fx lærer over studerende).
       const {
         data: updatedData,
         error: updateError,
@@ -153,35 +144,45 @@ export default function TeacherSearchPage() {
           owner: user.id,
         })
         .eq("booking_id", bookingId)
-        .eq("role", "available")
         .select("*")
         .maybeSingle();
 
       const updated = updatedData as BookingRow | null;
 
-      if (updateError) {
-        console.error("Failed to book slot", updateError);
+      if (updateError || !updated) {
+        console.error("Failed to book/override slot", updateError);
+        const msg = updateError?.message || "";
+
+        let userMessage =
+          "Tidsrummet kunne ikke bookes. Det kan være, at en anden har taget det.";
+
+        if (msg.includes("Students cannot override existing bookings")) {
+          userMessage =
+            "Studerende kan ikke overtage en eksisterende booking.";
+        } else if (
+          msg.includes("Teachers cannot override other teachers")
+        ) {
+          userMessage =
+            "Du kan ikke overtage en booking, der allerede er lavet af en anden lærer.";
+        } else if (msg.includes("maximum number of bookings")) {
+          userMessage =
+            "Du har allerede det maksimale antal bookinger for denne dag.";
+        } else if (
+          msg.includes("cannot book multiple different rooms")
+        ) {
+          userMessage = "Du kan kun booke ét lokale pr. dag.";
+        }
+
         setBookingModal({
           title: "Kunne ikke booke",
-          message:
-            "Tidsrummet kunne ikke bookes. Det kan være, at en anden lige har taget det.",
+          message: userMessage,
           confirmLabel: "OK",
           cancelLabel: "Luk",
         });
         return;
       }
 
-      if (!updated) {
-        setBookingModal({
-          title: "Kunne ikke booke",
-          message: "Tidsrummet blev booket af en anden.",
-          confirmLabel: "OK",
-          cancelLabel: "Luk",
-        });
-        return;
-      }
-
-      // Success – remove from UI
+      // Success – fjern tidsrummet fra UI'et (vi viser kun "ledige" kort)
       setFacilities((prev) =>
         prev.map((facility) => ({
           ...facility,
@@ -191,10 +192,13 @@ export default function TeacherSearchPage() {
         }))
       );
 
+      const wasAvailableBefore = existing.role === "available";
+
       setBookingModal({
         title: "Booking gennemført",
-        message:
-          "Dit lokale er nu booket. Du kan se det under 'My Bookings'.",
+        message: wasAvailableBefore
+          ? "Dit lokale er nu booket."
+          : "Du har nu overtaget denne booking (fx fra en studerende).",
         confirmLabel: "OK",
         cancelLabel: "Luk",
       });
@@ -256,7 +260,9 @@ export default function TeacherSearchPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {facility.slots.map((slot) => {
                     const start = new Date(slot.starts_at);
-                    const end = slot.ends_at ? new Date(slot.ends_at) : null;
+                    const end = slot.ends_at
+                      ? new Date(slot.ends_at)
+                      : null;
 
                     const dateLabel = start.toLocaleDateString("da-DK", {
                       weekday: "short",
