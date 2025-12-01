@@ -39,9 +39,9 @@ export function validateBooking(payload: unknown): ValidationResult<any> {
 	const data = parsed.data;
 
 	// Semantic check: if both start_time and end_time exist, ensure ordering
-	if (data.start_time && data.end_time) {
-		const start = new Date(data.start_time);
-		const end = new Date(data.end_time);
+	if (data.starts_at && data.ends_at) {
+		const start = new Date(data.starts_at);
+		const end = new Date(data.ends_at);
 		if (isNaN(start.getTime()) || isNaN(end.getTime())) {
 			return { valid: false, errors: ['start_time or end_time is not a valid date'] };
 		}

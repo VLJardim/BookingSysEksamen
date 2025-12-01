@@ -2,16 +2,18 @@ import { z } from 'zod';
 
 // Zod schemas for bookings, facilities and users. Adjust fields to match your DB schema.
 
+export const roleEnum = z.enum(["available", "not_available"]);
+
 export const bookingCreateSchema = z.object({
-  room_id: z.number(),
-  user_id: z.string(),
-  start_time: z.string(), // ISO date-time
-  end_time: z.string(), // ISO date-time
-  title: z.string().min(1).optional(),
-  description: z.string().optional(),
+  title: z.string().min(1, "Titel er påkrævet"),
+  starts_at: z.string().min(1, "Starttid er påkrævet"),
+  ends_at: z.string().optional().nullable(),
+  role: roleEnum.optional().default("available"),
+  facility_id: z.string().uuid().optional().nullable(),
 });
 
 export const bookingUpdateSchema = bookingCreateSchema.partial();
+
 
 export const bookingResponseSchema = bookingCreateSchema.extend({
   id: z.number(),

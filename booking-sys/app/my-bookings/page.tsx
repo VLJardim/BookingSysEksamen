@@ -1,4 +1,4 @@
-// app/my-bookings/page.tsx
+// src/app/my-bookings/page.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -6,45 +6,45 @@ import NavBar from "@/src/components/navBar";
 import getBrowserSupabase from "@/src/lib/supabase";
 import ConfirmationModal from "@/src/components/confirmationModal";
 
-type BookingRow = {
+type Booking = {
   booking_id: string;
   title: string;
   starts_at: string;
   ends_at: string | null;
-  role: string;
 };
 
 export default function MyBookingsPage() {
   const [userId, setUserId] = useState<string | null>(null);
-  const [bookings, setBookings] = useState<BookingRow[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [bookingToCancel, setBookingToCancel] = useState<BookingRow | null>(
-    null
-  );
-  const [modalBusy, setModalBusy] = useState(false);
+  // Modal state for cancelling a booking
+  const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
 
-  // 1) Find nuværende bruger
+  // 1) Find current user id
   useEffect(() => {
-    const loadUser = async () => {
+    const fetchUser = async () => {
       const supabase = getBrowserSupabase();
-      const { data } = await supabase.auth.getUser();
-      if (data.user) {
-        setUserId(data.user.id);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        setUserId(user.id);
       } else {
         setUserId(null);
       }
     };
 
-    loadUser().catch((err) => {
-      console.error("Kunne ikke hente bruger:", err);
+    fetchUser().catch((err) => {
+      console.error("Failed to load user", err);
       setUserId(null);
     });
   }, []);
 
-  // 2) Hent alle bookinger for den bruger
+  // 2) Hent brugerens bookinger
   useEffect(() => {
     if (!userId) return;
 
@@ -56,7 +56,7 @@ export default function MyBookingsPage() {
         const supabase = getBrowserSupabase();
         const { data, error } = await supabase
           .from("booking")
-          .select("booking_id, title, starts_at, ends_at, role")
+          .select("*")
           .eq("owner", userId)
           .order("starts_at", { ascending: true });
 
@@ -64,11 +64,11 @@ export default function MyBookingsPage() {
           console.error("Error fetching bookings:", error);
           setError("Kunne ikke hente dine bookinger.");
         } else {
-          setBookings((data ?? []) as BookingRow[]);
+          setBookings((data as Booking[]) || []);
         }
       } catch (err) {
-        console.error("Uventet fejl ved hentning af bookinger:", err);
-        setError("Der opstod en uventet fejl.");
+        console.error("Unexpected error fetching bookings:", err);
+        setError("Der opstod en fejl ved hentning af bookinger.");
       } finally {
         setLoading(false);
       }
@@ -77,135 +77,128 @@ export default function MyBookingsPage() {
     fetchBookings();
   }, [userId]);
 
-  // 3) Åbn modal for at bekræfte annullering
-  const openCancelModal = (booking: BookingRow) => {
+  const openCancelModal = (booking: Booking) => {
     setBookingToCancel(booking);
-    setModalOpen(true);
   };
 
-  // 4) Når bruger bekræfter annullering
+  const handleCloseModal = () => {
+    if (cancelLoading) return;
+    setBookingToCancel(null);
+  };
+
+  // 3) Annuller booking via API (DELETE /api/bookings/:id)
   const handleConfirmCancel = async () => {
-    if (!bookingToCancel || !userId) {
-      setModalOpen(false);
-      setBookingToCancel(null);
-      return;
-    }
+    if (!bookingToCancel) return;
 
     try {
-      setModalBusy(true);
-      const supabase = getBrowserSupabase();
+      setCancelLoading(true);
 
-      const { error } = await supabase
-        .from("booking")
-        .update({
-          role: "available",
-          owner: null,
-        })
-        .eq("booking_id", bookingToCancel.booking_id)
-        .eq("owner", userId); // 🔐 sikkerhed: kun din egen booking
+      const res = await fetch(`/api/bookings/${bookingToCancel.booking_id}`, {
+        method: "DELETE",
+      });
 
-      if (error) {
-        console.error("Error cancelling booking:", error);
-        setError("Det var ikke muligt at annullere bookingen. Prøv igen.");
-      } else {
-        // fjern den annullerede booking fra UI
-        setBookings((prev) =>
-          prev.filter((b) => b.booking_id !== bookingToCancel.booking_id)
-        );
+      const body = await res.json().catch(() => ({} as any));
+
+      if (!res.ok) {
+        console.error("Cancel booking error", body);
+
+        if (res.status === 401) {
+          setError("Du skal være logget ind for at annullere en booking.");
+        } else if (res.status === 403) {
+          setError(
+            "Du har ikke rettigheder til at annullere denne booking."
+          );
+        } else if (res.status === 404) {
+          setError("Bookingen blev ikke fundet.");
+        } else {
+          setError("Der opstod en fejl ved annullering af bookingen.");
+        }
+
+        return;
       }
+
+      // Success → fjern booking fra UI
+      setBookings((prev) =>
+        prev.filter((b) => b.booking_id !== bookingToCancel.booking_id)
+      );
     } catch (err) {
-      console.error("Uventet fejl ved annullering:", err);
-      setError("Der skete en fejl under annulleringen.");
+      console.error("Unexpected cancel error", err);
+      setError("Der opstod en uventet fejl ved annullering af bookingen.");
     } finally {
-      setModalBusy(false);
-      setModalOpen(false);
+      setCancelLoading(false);
       setBookingToCancel(null);
     }
   };
 
   return (
-    <>
-      <div className="flex min-h-screen">
-        <NavBar />
+    <div className="flex min-h-screen">
+      <NavBar />
 
-        <div className="flex-1 bg-gray-50 py-8 px-4">
-          <div className="mx-auto max-w-4xl">
-            <h1 className="mb-6 text-3xl font-bold">Mine bookinger</h1>
+      <div className="flex-1 bg-gray-50 py-8 px-4">
+        <div className="mx-auto max-w-4xl">
+          <h1 className="mb-6 text-3xl font-bold">Mine bookinger</h1>
 
-            {loading && (
-              <p className="text-gray-600">Indlæser dine bookinger...</p>
-            )}
+          {loading && <p>Henter dine bookinger...</p>}
+          {error && <p className="mb-4 text-red-600">{error}</p>}
 
-            {error && (
-              <p className="mb-4 text-sm text-red-600">
-                {error}
-              </p>
-            )}
+          {!loading && !error && bookings.length === 0 && (
+            <p className="text-gray-500">Du har ingen bookinger.</p>
+          )}
 
-            {!loading && !error && bookings.length === 0 && (
-              <p className="text-gray-500">Du har ingen bookinger.</p>
-            )}
-
-            {!loading && bookings.length > 0 && (
-              <div className="space-y-4">
-                {bookings.map((booking) => (
-                  <div
-                    key={booking.booking_id}
-                    className="flex items-center justify-between rounded-lg bg-white p-4 shadow"
-                  >
-                    <div>
-                      <h3 className="text-lg font-semibold">
-                        {booking.title}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        Start:{" "}
-                        {new Date(
-                          booking.starts_at
-                        ).toLocaleString("da-DK")}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Slut:{" "}
-                        {booking.ends_at
-                          ? new Date(
-                              booking.ends_at
-                            ).toLocaleString("da-DK")
-                          : "Ikke angivet"}
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => openCancelModal(booking)}
-                      className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-                    >
-                      Annuller booking
-                    </button>
+          {!loading && !error && bookings.length > 0 && (
+            <div className="grid gap-4">
+              {bookings.map((booking) => (
+                <div
+                  key={booking.booking_id}
+                  className="flex items-center justify-between rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow"
+                >
+                  <div>
+                    <h3 className="mb-2 text-xl font-semibold">
+                      {booking.title}
+                    </h3>
+                    <p className="text-gray-600">
+                      Start:{" "}
+                      {new Date(booking.starts_at).toLocaleString("da-DK")}
+                    </p>
+                    <p className="text-gray-600">
+                      Slut:{" "}
+                      {booking.ends_at
+                        ? new Date(booking.ends_at).toLocaleString("da-DK")
+                        : "Ikke angivet"}
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+
+                  <button
+                    type="button"
+                    onClick={() => openCancelModal(booking)}
+                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  >
+                    Annuller booking
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Modal til bekræftelse af annullering */}
       <ConfirmationModal
-        open={modalOpen}
-        title="Annuller booking"
+        isOpen={bookingToCancel !== null}
+        title="Annuller booking?"
         message={
           bookingToCancel
-            ? `Er du sikker på, at du vil annullere bookingen "${bookingToCancel.title}"?`
-            : "Er du sikker på, at du vil annullere denne booking?"
+            ? `Er du sikker på, at du vil annullere bookingen af "${bookingToCancel.title}"?\n\nStart: ${new Date(
+                bookingToCancel.starts_at
+              ).toLocaleString("da-DK")}`
+            : ""
         }
-        confirmLabel={modalBusy ? "Annullerer..." : "Ja, annuller"}
-        cancelLabel="Fortryd"
-        confirmColor="red"
-        onConfirm={modalBusy ? () => {} : handleConfirmCancel}
-        onClose={() => {
-          if (modalBusy) return;
-          setModalOpen(false);
-          setBookingToCancel(null);
-        }}
+        confirmLabel={cancelLoading ? "Annullerer..." : "Ja, annuller"}
+        cancelLabel="Behold booking"
+        confirmVariant="danger"
+        onConfirm={cancelLoading ? undefined : handleConfirmCancel}
+        onClose={handleCloseModal}
       />
-    </>
+    </div>
   );
 }

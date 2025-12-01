@@ -3,44 +3,54 @@
 
 import React from "react";
 
-type ConfirmationModalProps = {
-  open: boolean;
-  title?: string;
+type ConfirmationVariant = "primary" | "danger";
+
+interface ConfirmationModalProps {
+  isOpen: boolean;
+  title: string;
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  confirmColor?: "red" | "blue";
-  onConfirm: () => void;
+  confirmVariant?: ConfirmationVariant;
+  onConfirm?: () => void;
   onClose: () => void;
-};
+}
 
 export default function ConfirmationModal({
-  open,
+  isOpen,
   title,
   message,
   confirmLabel = "OK",
-  cancelLabel = "Annuller",
-  confirmColor = "blue",
+  cancelLabel = "Luk",
+  confirmVariant = "primary",
   onConfirm,
   onClose,
 }: ConfirmationModalProps) {
-  if (!open) return null;
+  if (!isOpen) return null;
 
   const confirmClasses =
-    confirmColor === "red"
+    confirmVariant === "danger"
       ? "bg-red-600 hover:bg-red-700 focus:ring-red-500"
       : "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500";
 
+  const handleConfirm = () => {
+    if (onConfirm) {
+      onConfirm();
+    } else {
+      onClose();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
-        {title && (
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            {title}
-          </h2>
-        )}
-
-        <p className="mb-6 text-sm text-gray-700">{message}</p>
+      <div
+        className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="mb-3 text-xl font-semibold text-gray-900">{title}</h2>
+        <p className="mb-6 text-sm text-gray-700 whitespace-pre-line">
+          {message}
+        </p>
 
         <div className="flex justify-end gap-3">
           <button
@@ -50,10 +60,9 @@ export default function ConfirmationModal({
           >
             {cancelLabel}
           </button>
-
           <button
             type="button"
-            onClick={onConfirm}
+            onClick={handleConfirm}
             className={`rounded-md px-4 py-2 text-sm font-medium text-white focus:outline-none focus:ring-2 ${confirmClasses}`}
           >
             {confirmLabel}

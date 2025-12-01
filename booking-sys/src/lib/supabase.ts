@@ -1,28 +1,19 @@
-// app/src/lib/supabase.ts
-import { createClient } from '@supabase/supabase-js';
+"use client";
 
-// Provide a factory to create the browser Supabase client at runtime.
-// Creating the client lazily avoids failures during server build where
-// NEXT_PUBLIC_* env vars may not be populated.
-let browserClient: any = null;
-export function getBrowserSupabase() {
-  if (browserClient) return browserClient;
+import { createBrowserSupabaseClient } from "@supabase/auth-helpers-nextjs";
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+// Vi lader TypeScript selv finde ud af typen baseret på createBrowserSupabaseClient
+type BrowserSupabaseClient = ReturnType<typeof createBrowserSupabaseClient>;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('Public Supabase env vars are not set (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)');
+// Én global browser-klient, som vi genbruger i browseren
+let browserClient: BrowserSupabaseClient | null = null;
+
+export default function getBrowserSupabase() {
+  // Hvis klienten ikke findes endnu, laver vi den
+  if (!browserClient) {
+    browserClient = createBrowserSupabaseClient();
   }
 
-  browserClient = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-    }
-  });
-
+  // Og returnerer altid den samme instans
   return browserClient;
 }
-
-export default getBrowserSupabase;
