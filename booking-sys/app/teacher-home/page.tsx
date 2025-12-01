@@ -69,7 +69,7 @@ export default function TeacherHomePage() {
                                 </div>
                                 <Link 
                                     href={`/teacher-home/${booking.booking_id}`}
-                                    className="block w-full bg-[#6B8CAE] text-white text-center py-3 rounded-full hover:bg-[#5A7A9A] transition-colors font-medium"
+                                    className="block w-full bg-[#1864AB] text-white text-center py-3 rounded-full hover:bg-[#4E7CD9] transition-colors font-medium"
                                 >
                                     Se booking
                                 </Link>

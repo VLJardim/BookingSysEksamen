@@ -50,7 +50,7 @@ export default function BookingCard({
       <button
         type="button"
         onClick={handleClick}
-        className="mt-4 w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="mt-4 w-full rounded-md bg-[#1864AB] px-3 py-2 text-sm font-medium text-white hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
         {label}
       </button>

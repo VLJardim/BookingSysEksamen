@@ -31,7 +31,7 @@ export default function ConfirmationModal({
   const confirmClasses =
     confirmVariant === "danger"
       ? "bg-red-600 hover:bg-red-700 focus:ring-red-500"
-      : "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500";
+      : "bg-[#1864AB] hover:bg-[#4E7CD9] focus:ring-blue-500";
 
   const handleConfirm = () => {
     if (onConfirm) {

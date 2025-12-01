@@ -174,7 +174,7 @@ export default function BookingForm() {
 
         <button
           type="submit"
-          className="max-w-xs bg-[#6B8CAE] text-white py-3 px-8 rounded-full hover:bg-[#5A7A9A] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
+          className="max-w-xs bg-[#1864AB] text-white py-3 px-8 rounded-full hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
         >
           Søg
         </button>
