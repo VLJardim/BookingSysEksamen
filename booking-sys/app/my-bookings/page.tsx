@@ -87,40 +87,46 @@ export default function MyBookingsPage() {
     setBookingToCancel(null);
   };
 
-  // 3) Annuller booking via API (DELETE /api/bookings/:id)
+  // 3) Annuller booking direkte via Supabase (ikke længere via /api/bookings/:id)
   const handleConfirmCancel = async () => {
     if (!bookingToCancel) return;
 
     try {
       setCancelLoading(true);
-      console.log("[UI] Cancelling booking_id:", bookingToCancel.booking_id);
+      setError(null);
 
-      const res = await fetch(`/api/bookings/${bookingToCancel.booking_id}`, {
-        method: "DELETE",
-      });
+      const supabase = getBrowserSupabase();
 
-      const body = await res.json().catch(() => ({} as any));
-       console.log("[UI] Cancel response status/body:", res.status, body);
+      // 3.1: Tjek at brugeren er logget ind
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      if (!res.ok) {
-        console.error("Cancel booking error", body);
-
-        if (res.status === 401) {
-          setError("Du skal være logget ind for at annullere en booking.");
-        } else if (res.status === 403) {
-          setError(
-            "Du har ikke rettigheder til at annullere denne booking."
-          );
-        } else if (res.status === 404) {
-          setError("Bookingen blev ikke fundet.");
-        } else {
-          setError("Der opstod en fejl ved annullering af bookingen.");
-        }
-
+      if (userError || !user) {
+        setError("Du skal være logget ind for at annullere en booking.");
         return;
       }
 
-      // Success → fjern booking fra UI
+      // 3.2: Sæt tidsrummet tilbage til available og ryd owner
+      const { data, error } = await (supabase as any)
+        .from("booking")
+        .update({
+          role: "available",
+          owner: null,
+        })
+        .eq("booking_id", bookingToCancel.booking_id)
+        .eq("owner", user.id) // sikkerhed: kun dine egne bookinger
+        .select("booking_id")
+        .maybeSingle();
+
+      if (error || !data) {
+        console.error("Cancel booking error", error);
+        setError("Det lykkedes ikke at annullere bookingen.");
+        return;
+      }
+
+      // 3.3: Success → fjern booking fra UI
       setBookings((prev) =>
         prev.filter((b) => b.booking_id !== bookingToCancel.booking_id)
       );
@@ -135,64 +141,66 @@ export default function MyBookingsPage() {
 
   return (
     <div className="bg-gray-50 py-8 px-4 min-h-screen">
-        <div className="mx-auto max-w-4xl">
-          <h1 className="mb-6 text-3xl font-bold">Mine bookinger</h1>
+      <div className="mx-auto max-w-4xl">
+        <h1 className="mb-6 text-3xl font-bold">Mine bookinger</h1>
 
-          {loading && <p>Henter dine bookinger...</p>}
-          {error && <p className="mb-4 text-red-600">{error}</p>}
+        {loading && <p>Henter dine bookinger...</p>}
+        {error && <p className="mb-4 text-red-600">{error}</p>}
 
-          {!loading && !error && bookings.length === 0 && (
-            <p className="text-gray-500">Du har ingen bookinger.</p>
-          )}
+        {!loading && !error && bookings.length === 0 && (
+          <p className="text-gray-500">Du har ingen bookinger.</p>
+        )}
 
-          {!loading && !error && bookings.length > 0 && (
-            <div className="grid gap-4">
-              {bookings.map((booking) => (
-                <div
-                  key={booking.booking_id}
-                  className="flex items-center justify-between rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow"
-                >
-                  <div>
-                    <h3 className="mb-2 text-xl font-semibold">
-                      {booking.title}
-                    </h3>
-                    <p className="text-gray-600">
-                      Start:{" "}
-                      {new Date(booking.starts_at).toLocaleString("da-DK")}
-                    </p>
-                    <p className="text-gray-600">
-                      Slut:{" "}
-                      {booking.ends_at
-                        ? new Date(booking.ends_at).toLocaleString("da-DK")
-                        : "Ikke angivet"}
-                    </p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/my-bookings/${booking.booking_id}`)}
-                      className="rounded-md bg-[#1864AB] px-4 py-2 text-sm font-medium text-white hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      Rediger
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => openCancelModal(booking)}
-                      className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-                    >
-                      Annuller booking
-                    </button>
-                  </div>
+        {!loading && !error && bookings.length > 0 && (
+          <div className="grid gap-4">
+            {bookings.map((booking) => (
+              <div
+                key={booking.booking_id}
+                className="flex items-center justify-between rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow"
+              >
+                <div>
+                  <h3 className="mb-2 text-xl font-semibold">
+                    {booking.title}
+                  </h3>
+                  <p className="text-gray-600">
+                    Start:{" "}
+                    {new Date(booking.starts_at).toLocaleString("da-DK")}
+                  </p>
+                  <p className="text-gray-600">
+                    Slut:{" "}
+                    {booking.ends_at
+                      ? new Date(booking.ends_at).toLocaleString("da-DK")
+                      : "Ikke angivet"}
+                  </p>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* Modal til bekræftelse af annullering */}
-        <ConfirmationModal
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      router.push(`/my-bookings/${booking.booking_id}`)
+                    }
+                    className="rounded-md bg-[#1864AB] px-4 py-2 text-sm font-medium text-white hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    Rediger
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => openCancelModal(booking)}
+                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  >
+                    Annuller booking
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modal til bekræftelse af annullering */}
+      <ConfirmationModal
         isOpen={bookingToCancel !== null}
         title="Annuller booking?"
         message={

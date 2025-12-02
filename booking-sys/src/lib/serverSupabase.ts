@@ -1,20 +1,40 @@
-import { createClient } from '@supabase/supabase-js';
+// src/lib/serverSupabase.ts
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-// Server-side Supabase client that uses the public anon key.
-// No dependency on SUPABASE_SERVICE_ROLE_KEY anymore.
-export function getAdminSupabase() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+let adminClient: SupabaseClient | null = null;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+export default function getAdminSupabase(): SupabaseClient {
+  if (adminClient) return adminClient;
+
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error(
+      "[serverSupabase] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+      {
+        supabaseUrlPresent: !!supabaseUrl,
+        serviceRoleKeyPresent: !!serviceRoleKey,
+      }
+    );
     throw new Error(
-      'Supabase URL or anon key missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.'
+      "Supabase service role environment variables are not set on the server"
     );
   }
 
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { persistSession: false },
-  });
-}
+  console.log(
+    "[serverSupabase] Initializing admin client",
+    supabaseUrl,
+    "(service key length:",
+    serviceRoleKey.length,
+    ")"
+  );
 
-export default getAdminSupabase;
+  adminClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false, // no cookies/sessions on the server
+    },
+  });
+
+  return adminClient;
+}
