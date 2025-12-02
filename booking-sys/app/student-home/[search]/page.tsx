@@ -21,7 +21,6 @@ type BookingRow = {
   owner: string | null;
 };
 
-
 type Facility = {
   facility_id: string;
   title: string;
@@ -46,6 +45,14 @@ type BookingModalConfig = {
   confirmLabel?: string;
   cancelLabel?: string;
 };
+
+// Hjælper til at vise tid præcis som i DB (ignorerer timezone)
+// Forventer ISO string: "YYYY-MM-DDTHH:MM:SS..."
+function formatTimeRange(startsAt: string, endsAt?: string | null) {
+  const startHM = startsAt.slice(11, 16); // "HH:MM"
+  const endHM = endsAt ? endsAt.slice(11, 16) : "";
+  return endHM ? `${startHM} - ${endHM}` : startHM;
+}
 
 export default function SearchPage() {
   const params = useParams<RouteParams>();
@@ -152,172 +159,184 @@ export default function SearchPage() {
   }, [facilities, role]);
 
   // 4) Book slot direkte via Supabase (ingen API-route, ingen cookies i din kode)
-const handleBookSlot = async (bookingId: string) => {
-  try {
-    const supabase = getBrowserSupabase();
+  const handleBookSlot = async (bookingId: string) => {
+    try {
+      const supabase = getBrowserSupabase();
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    if (userError || !user) {
-      // ... existing modal code
-      return;
+      if (userError || !user) {
+        setBookingModal({
+          title: "Log ind påkrævet",
+          message:
+            "Du skal være logget ind for at booke et lokale. Log ind og prøv igen.",
+          confirmLabel: "OK",
+          cancelLabel: "Luk",
+        });
+        return;
+      }
+
+      // 1) Fetch current row
+      const {
+        data: existingData,
+        error: fetchError,
+      } = await (supabase as any)
+        .from("booking")
+        .select("booking_id, role, owner")
+        .eq("booking_id", bookingId)
+        .maybeSingle();
+
+      console.log("[BOOK] existing row:", { existingData, fetchError });
+
+      const existing = existingData as BookingRow | null;
+
+      if (fetchError || !existing || existing.role !== "available") {
+        setBookingModal({
+          title: "Kunne ikke booke",
+          message: "Tidsrummet er allerede booket af en anden.",
+          confirmLabel: "OK",
+          cancelLabel: "Luk",
+        });
+        return;
+      }
+
+      // 2) Try to book (update)
+      const {
+        data: updatedData,
+        error: updateError,
+      } = await (supabase as any)
+        .from("booking")
+        .update({
+          role: "not_available",
+          owner: user.id,
+        })
+        .eq("booking_id", bookingId)
+        .eq("role", "available")
+        .select("*")
+        .maybeSingle();
+
+      console.log("[BOOK] update result:", { updatedData, updateError });
+
+      const updated = updatedData as BookingRow | null;
+
+      if (updateError || !updated) {
+        setBookingModal({
+          title: "Kunne ikke booke",
+          message:
+            "Tidsrummet kunne ikke bookes. Det kan være, at en anden lige har taget det.",
+          confirmLabel: "OK",
+          cancelLabel: "Luk",
+        });
+        return;
+      }
+
+      // 3) Remove from UI
+      setFacilities((prev) =>
+        prev.map((facility) => ({
+          ...facility,
+          slots: facility.slots.filter(
+            (slot) => slot.booking_id !== bookingId
+          ),
+        }))
+      );
+
+      setBookingModal({
+        title: "Booking gennemført",
+        message: "Dit lokale er nu booket. Du kan se det under 'My Bookings'.",
+        confirmLabel: "OK",
+        cancelLabel: "Luk",
+      });
+    } catch (err) {
+      console.error("Unexpected booking error", err);
+      setBookingModal({
+        title: "Kunne ikke booke",
+        message: "Der opstod en uventet fejl. Prøv igen senere.",
+        confirmLabel: "OK",
+        cancelLabel: "Luk",
+      });
     }
-
-    // 1) Fetch current row
-    const {
-      data: existingData,
-      error: fetchError,
-    } = await (supabase as any)
-      .from("booking")
-      .select("booking_id, role, owner")
-      .eq("booking_id", bookingId)
-      .maybeSingle();
-
-    console.log("[BOOK] existing row:", { existingData, fetchError });
-
-    const existing = existingData as BookingRow | null;
-
-    if (fetchError || !existing || existing.role !== "available") {
-      // ... existing modal code
-      return;
-    }
-
-    // 2) Try to book (update)
-    const {
-      data: updatedData,
-      error: updateError,
-    } = await (supabase as any)
-      .from("booking")
-      .update({
-        role: "not_available",
-        owner: user.id,
-      })
-      .eq("booking_id", bookingId)
-      .eq("role", "available")
-      .select("*")
-      .maybeSingle();
-
-    console.log("[BOOK] update result:", { updatedData, updateError });
-
-    const updated = updatedData as BookingRow | null;
-
-    if (updateError || !updated) {
-      // ... existing error modal
-      return;
-    }
-
-    // 3) Remove from UI
-    setFacilities((prev) =>
-      prev.map((facility) => ({
-        ...facility,
-        slots: facility.slots.filter(
-          (slot) => slot.booking_id !== bookingId
-        ),
-      }))
-    );
-
-    setBookingModal({
-      title: "Booking gennemført",
-      message: "Dit lokale er nu booket. Du kan se det under 'My Bookings'.",
-      confirmLabel: "OK",
-      cancelLabel: "Luk",
-    });
-  } catch (err) {
-    console.error("Unexpected booking error", err);
-    // ... existing error modal
-  }
-};
-
-
+  };
 
   return (
     <main className="min-h-screen bg-gray-50 p-8">
-        <header className="mb-8">
-          <h1 className="mb-2 text-2xl font-bold">Find ledige lokaler</h1>
-          <p className="text-gray-600">
-            Søgeresultat for:{" "}
-            <span className="font-medium">{searchDate}</span>
-          </p>
-        </header>
+      <header className="mb-8">
+        <h1 className="mb-2 text-2xl font-bold">Find ledige lokaler</h1>
+        <p className="text-gray-600">
+          Søgeresultat for:{" "}
+          <span className="font-medium">{searchDate}</span>
+        </p>
+      </header>
 
-        {loading && <p>Henter ledige tider...</p>}
-        {error && <p className="mb-4 text-red-600">Fejl: {error}</p>}
+      {loading && <p>Henter ledige tider...</p>}
+      {error && <p className="mb-4 text-red-600">Fejl: {error}</p>}
 
-        {!loading && !error && visibleFacilities.length === 0 && (
-          <p className="text-gray-600">
-            Der blev ikke fundet ledige lokaler på denne dato.
-          </p>
-        )}
+      {!loading && !error && visibleFacilities.length === 0 && (
+        <p className="text-gray-600">
+          Der blev ikke fundet ledige lokaler på denne dato.
+        </p>
+      )}
 
-        {!loading && !error && visibleFacilities.length > 0 && (
-          <div className="space-y-10">
-            {visibleFacilities.map((facility) => (
-              <section key={facility.facility_id}>
-                <h2 className="mb-1 text-xl font-semibold">
-                  {facility.title}
-                </h2>
+      {!loading && !error && visibleFacilities.length > 0 && (
+        <div className="space-y-10">
+          {visibleFacilities.map((facility) => (
+            <section key={facility.facility_id}>
+              <h2 className="mb-1 text-xl font-semibold">
+                {facility.title}
+              </h2>
 
-                {facility.description && (
-                  <p className="mb-1 text-gray-600">
-                    {facility.description}
-                  </p>
-                )}
+              {facility.description && (
+                <p className="mb-1 text-gray-600">
+                  {facility.description}
+                </p>
+              )}
 
-                {facility.capacity && (
-                  <p className="mb-4 text-sm text-gray-500">
-                    Kapacitet: {facility.capacity}
-                  </p>
-                )}
+              {facility.capacity && (
+                <p className="mb-4 text-sm text-gray-500">
+                  Kapacitet: {facility.capacity}
+                </p>
+              )}
 
-                {facility.slots.length === 0 ? (
-                  <p className="text-sm text-gray-500">
-                    Ingen ledige tider for dette lokale.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {facility.slots.map((slot) => {
-                      const start = new Date(slot.starts_at);
-                      const end = slot.ends_at ? new Date(slot.ends_at) : null;
+              {facility.slots.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  Ingen ledige tider for dette lokale.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {facility.slots.map((slot) => {
+                    const start = new Date(slot.starts_at);
+                    const end = slot.ends_at ? new Date(slot.ends_at) : null;
 
-                      const dateLabel = start.toLocaleDateString("da-DK", {
-                        weekday: "short",
-                        day: "2-digit",
-                        month: "2-digit",
-                      });
+                    const dateLabel = start.toLocaleDateString("da-DK", {
+                      weekday: "short",
+                      day: "2-digit",
+                      month: "2-digit",
+                    });
 
-                      const timeLabel =
-                        start.toLocaleTimeString("da-DK", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }) +
-                        (end
-                          ? " - " +
-                            end.toLocaleTimeString("da-DK", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
-                          : "");
+                    const timeLabel = formatTimeRange(
+                      slot.starts_at,
+                      slot.ends_at ?? null
+                    );
 
-                      return (
-                        <BookingCard
-                          key={slot.booking_id}
-                          bookingId={slot.booking_id}
-                          roomName={facility.title}
-                          date={dateLabel}
-                          time={timeLabel}
-                          onBook={handleBookSlot}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-            ))}
-          </div>
-        )}
+                    return (
+                      <BookingCard
+                        key={slot.booking_id}
+                        bookingId={slot.booking_id}
+                        roomName={facility.title}
+                        date={dateLabel}
+                        time={timeLabel}
+                        onBook={handleBookSlot}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          ))}
+        </div>
+      )}
 
       {/* Booking success / error modal */}
       <ConfirmationModal
