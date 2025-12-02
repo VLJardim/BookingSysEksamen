@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import getBrowserSupabase from "@/src/lib/supabase";
 import ConfirmationModal from "@/src/components/confirmationModal";
 
@@ -13,6 +14,7 @@ type Booking = {
 };
 
 export default function MyBookingsPage() {
+  const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
@@ -164,13 +166,23 @@ export default function MyBookingsPage() {
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => openCancelModal(booking)}
-                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-                  >
-                    Annuller booking
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/my-bookings/${booking.booking_id}`)}
+                      className="rounded-md bg-[#1864AB] px-4 py-2 text-sm font-medium text-white hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      Rediger
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => openCancelModal(booking)}
+                      className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    >
+                      Annuller booking
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
