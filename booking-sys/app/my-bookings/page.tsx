@@ -93,12 +93,14 @@ export default function MyBookingsPage() {
 
     try {
       setCancelLoading(true);
+      console.log("[UI] Cancelling booking_id:", bookingToCancel.booking_id);
 
       const res = await fetch(`/api/bookings/${bookingToCancel.booking_id}`, {
         method: "DELETE",
       });
 
       const body = await res.json().catch(() => ({} as any));
+       console.log("[UI] Cancel response status/body:", res.status, body);
 
       if (!res.ok) {
         console.error("Cancel booking error", body);
