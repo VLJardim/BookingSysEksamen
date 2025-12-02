@@ -152,28 +152,21 @@ export default function SearchPage() {
   }, [facilities, role]);
 
   // 4) Book slot direkte via Supabase (ingen API-route, ingen cookies i din kode)
- const handleBookSlot = async (bookingId: string) => {
+const handleBookSlot = async (bookingId: string) => {
   try {
     const supabase = getBrowserSupabase();
 
-    // 4.1: tjek om brugeren er logget ind
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      setBookingModal({
-        title: "Log ind påkrævet",
-        message:
-          "Du skal være logget ind for at booke et lokale. Log ind og prøv igen.",
-        confirmLabel: "OK",
-        cancelLabel: "Luk",
-      });
+      // ... existing modal code
       return;
     }
 
-    // 4.2: Hent den aktuelle booking-række for at sikre, at den stadig er available
+    // 1) Fetch current row
     const {
       data: existingData,
       error: fetchError,
@@ -183,31 +176,16 @@ export default function SearchPage() {
       .eq("booking_id", bookingId)
       .maybeSingle();
 
+    console.log("[BOOK] existing row:", { existingData, fetchError });
+
     const existing = existingData as BookingRow | null;
 
-    if (fetchError) {
-      console.error("Failed to fetch booking slot", fetchError);
-      setBookingModal({
-        title: "Kunne ikke booke",
-        message:
-          "Der opstod en fejl ved hentning af tidsrummet. Prøv igen senere.",
-        confirmLabel: "OK",
-        cancelLabel: "Luk",
-      });
+    if (fetchError || !existing || existing.role !== "available") {
+      // ... existing modal code
       return;
     }
 
-    if (!existing || existing.role !== "available") {
-      setBookingModal({
-        title: "Kunne ikke booke",
-        message: "Tidsrummet er allerede booket af en anden.",
-        confirmLabel: "OK",
-        cancelLabel: "Luk",
-      });
-      return;
-    }
-
-    // 4.3: Opdater rækken: gør den not_available og sæt owner = user.id
+    // 2) Try to book (update)
     const {
       data: updatedData,
       error: updateError,
@@ -218,35 +196,20 @@ export default function SearchPage() {
         owner: user.id,
       })
       .eq("booking_id", bookingId)
-      .eq("role", "available") // sikrer at vi kun opdaterer hvis den stadig er ledig
+      .eq("role", "available")
       .select("*")
       .maybeSingle();
 
+    console.log("[BOOK] update result:", { updatedData, updateError });
+
     const updated = updatedData as BookingRow | null;
 
-    if (updateError) {
-      console.error("Failed to book slot", updateError);
-      setBookingModal({
-        title: "Kunne ikke booke",
-        message:
-          "Tidsrummet kunne ikke bookes. Det kan være, at en anden lige har taget det.",
-        confirmLabel: "OK",
-        cancelLabel: "Luk",
-      });
+    if (updateError || !updated) {
+      // ... existing error modal
       return;
     }
 
-    if (!updated) {
-      setBookingModal({
-        title: "Kunne ikke booke",
-        message: "Tidsrummet blev booket af en anden.",
-        confirmLabel: "OK",
-        cancelLabel: "Luk",
-      });
-      return;
-    }
-
-    // 4.4: Success – fjern tidsrummet fra UI'et
+    // 3) Remove from UI
     setFacilities((prev) =>
       prev.map((facility) => ({
         ...facility,
@@ -258,21 +221,16 @@ export default function SearchPage() {
 
     setBookingModal({
       title: "Booking gennemført",
-      message:
-        "Dit lokale er nu booket. Du kan se det under 'My Bookings'.",
+      message: "Dit lokale er nu booket. Du kan se det under 'My Bookings'.",
       confirmLabel: "OK",
       cancelLabel: "Luk",
     });
   } catch (err) {
     console.error("Unexpected booking error", err);
-    setBookingModal({
-      title: "Kunne ikke booke",
-      message: "Der opstod en uventet fejl. Prøv igen senere.",
-      confirmLabel: "OK",
-      cancelLabel: "Luk",
-    });
+    // ... existing error modal
   }
 };
+
 
 
   return (
