@@ -73,8 +73,9 @@ export default function NavBar({ showLinks = true }: NavBarProps) {
             className="flex items-center gap-3 bg-white rounded-lg p-4 hover:bg-gray-50 transition-colors w-full text-left cursor-pointer"
           >
             <IconUser size={24} className="text-green-600" />
-            <span className="text-gray-900 font-medium">
-              Profil{userName && ` (${userName})`}
+            <span className="text-gray-900">
+              <span className="font-medium">Profil</span>
+              {userName && <span className="text-[12px] text-gray-600"> {userName}</span>}
             </span>
           </button>
         </Stack>
