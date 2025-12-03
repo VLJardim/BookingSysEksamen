@@ -84,7 +84,8 @@ export default function LoginForm() {
             Denne e-mail skal være tilknyttet en uddannelse.
           </small>
           <span className="block text-sm font-medium text-gray-700 mt-1">
-            E-mail adresse *
+            E-mail adresse 
+            <span className="text-red-600"> *</span>
           </span>
           <input
             type="email"
@@ -100,7 +101,8 @@ export default function LoginForm() {
       <div className="space-y-2">
         <label className="block">
           <span className="block text-sm font-medium text-gray-700">
-            Adgangskode *
+            Adgangskode 
+            <span className="text-red-600"> *</span>
           </span>
           <input
             type="password"

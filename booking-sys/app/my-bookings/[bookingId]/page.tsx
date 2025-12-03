@@ -42,14 +42,11 @@ export default function EditBooking() {
     isError: false,
   });
 
-  // Generate time options in 15-minute intervals from 08:00 to 15:45
+  // Generate time options in hourly intervals from 08:00 to 15:00
   const timeOptions = [];
   for (let hour = 8; hour < 16; hour++) {
-    for (let minute of [0, 15, 30, 45]) {
-      const hourStr = hour.toString().padStart(2, "0");
-      const minStr = minute.toString().padStart(2, "0");
-      timeOptions.push(`${hourStr}:${minStr}`);
-    }
+    const hourStr = hour.toString().padStart(2, "0");
+    timeOptions.push(`${hourStr}:00`);
   }
 
   useEffect(() => {

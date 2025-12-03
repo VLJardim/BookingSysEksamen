@@ -81,7 +81,10 @@ export default function CreateAccountForm() {
 
 			<div>
 				<label className="block">
-					<span className="block text-sm font-medium text-gray-700">E-mail adresse *</span>
+					<span className="block text-sm font-medium text-gray-700">
+						E-mail adresse 
+						<span className="text-red-600"> *</span>
+					</span>
 					<input
 						type="email"
 						required
@@ -95,7 +98,10 @@ export default function CreateAccountForm() {
 
 			<div className="grid grid-cols-2 gap-4">
 				<label className="block">
-					<span className="block text-sm font-medium text-gray-700">Adgangskode *</span>
+					<span className="block text-sm font-medium text-gray-700">
+						Adgangskode 
+						<span className="text-red-600"> *</span>
+					</span>
 					<input
 						type="password"
 						required
@@ -107,7 +113,10 @@ export default function CreateAccountForm() {
 				</label>
 
 				<label className="block">
-					<span className="block text-sm font-medium text-gray-700">Bekræft adgangskode *</span>
+					<span className="block text-sm font-medium text-gray-700">
+						Bekræft adgangskode 
+						<span className="text-red-600"> *</span>
+					</span>
 					<input
 						type="password"
 						required

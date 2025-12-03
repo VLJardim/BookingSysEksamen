@@ -3,15 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-// Generate time options in 15-minute intervals
+// Generate time options in hourly intervals
 const generateTimeOptions = () => {
   const times = [];
   for (let hour = 8; hour < 16; hour++) {
-    for (let minute of [0, 15, 30, 45]) {
-      const hourStr = hour.toString().padStart(2, "0");
-      const minStr = minute.toString().padStart(2, "0");
-      times.push(`${hourStr}:${minStr}`);
-    }
+    const hourStr = hour.toString().padStart(2, "0");
+    times.push(`${hourStr}:00`);
   }
   return times;
 };
