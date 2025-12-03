@@ -1,8 +1,9 @@
+// src/forms/bookingForm.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import getBrowserSupabase from "@/src/lib/supabase"; // 🔹 NEW
+import getBrowserSupabase from "@/src/lib/supabase";
 
 // Generate time options in hourly intervals
 const generateTimeOptions = () => {
@@ -18,13 +19,13 @@ export default function BookingForm() {
   const router = useRouter();
   const timeOptions = generateTimeOptions();
 
-  // 🔹 controlled value for the date field
+  // kontrolleret værdi til dato-feltet
   const [date, setDate] = useState("");
 
-  // 🔹 today's date for the "min" attribute
+  // dagens dato til "min"-attributten
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  // 🔹 block Saturday/Sunday in the date picker
+  // blokér lørdag/søndag i date-picker
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
 
@@ -35,10 +36,10 @@ export default function BookingForm() {
     }
 
     const selected = new Date(value + "T00:00:00");
-    const day = selected.getDay(); // 0 = Sunday, 6 = Saturday
+    const day = selected.getDay(); // 0 = søndag, 6 = lørdag
 
     if (day === 0 || day === 6) {
-      // weekend -> not allowed
+      // weekend -> ikke tilladt
       setDate("");
       e.target.value = "";
       e.target.setCustomValidity(
@@ -48,7 +49,7 @@ export default function BookingForm() {
       return;
     }
 
-    // weekday -> ok
+    // hverdag -> ok
     e.target.setCustomValidity("");
     setDate(value);
   };
@@ -61,9 +62,9 @@ export default function BookingForm() {
     const start = String(formData.get("start") || "").trim();
     const end = String(formData.get("end") || "").trim();
 
-    if (!date) return; // guard: date is required and must be weekday
+    if (!date) return; // dato er påkrævet og skal være hverdag
 
-    // 🔹 Find current user to decide route (teacher vs student)
+    // 🔹 Find brugerens email for at afgøre om det er lærer eller elev
     const supabase = getBrowserSupabase();
     const {
       data: { user },
@@ -108,6 +109,7 @@ export default function BookingForm() {
             className="cursor-pointer"
             onClick={(e) => {
               const input = e.currentTarget.querySelector("input");
+              // åbner browserens date-picker
               (input as HTMLInputElement | null)?.showPicker?.();
             }}
           >
