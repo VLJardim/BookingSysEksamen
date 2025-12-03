@@ -21,7 +21,7 @@ export default function BookingForm() {
   const timeOptions = generateTimeOptions();
 
   // kontrolleret værdi til dato-feltet
-  const [dateValue, setDateValue] = useState<Date | null>(null);
+  const [dateValue, setDateValue] = useState<string | null>(null);
 
   // dagens dato til minimum
   const today = new Date();
@@ -37,18 +37,19 @@ export default function BookingForm() {
 
     if (!dateValue) return; // dato er påkrævet og skal være hverdag
 
+    // Parse the date string (DD/MM/YYYY format)
+    const [dayStr, monthStr, yearStr] = dateValue.split("/");
+    const dateObj = new Date(parseInt(yearStr), parseInt(monthStr) - 1, parseInt(dayStr));
+
     // Check if selected date is a weekend
-    const selectedDay = dateValue.getDay();
+    const selectedDay = dateObj.getDay();
     if (selectedDay === 0 || selectedDay === 6) {
       alert("Du kan kun booke lokaler mandag til fredag.");
       return;
     }
 
     // Convert date to YYYY-MM-DD format
-    const year = dateValue.getFullYear();
-    const month = String(dateValue.getMonth() + 1).padStart(2, "0");
-    const day = String(dateValue.getDate()).padStart(2, "0");
-    const dateStr = `${year}-${month}-${day}`;
+    const dateStr = `${yearStr}-${monthStr.padStart(2, "0")}-${dayStr.padStart(2, "0")}`;
 
     // 🔹 Find brugerens email for at afgøre om det er lærer eller elev
     const supabase = getBrowserSupabase();
@@ -100,11 +101,6 @@ export default function BookingForm() {
             required
             classNames={{
               input: "max-w-md px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-500"
-            }}
-            styles={{
-              dropdown: {
-                width: "max-content"
-              }
             }}
           />
         </div>
