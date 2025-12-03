@@ -30,7 +30,7 @@ export default function BookingForm() {
   const startTimeOptions = generateStartTimeOptions();
   const endTimeOptions = generateEndTimeOptions();
 
-  // Accept both Date and string
+  // Accept both Date and string, because we’ve seen "2025-12-04" at runtime
   const [dateValue, setDateValue] = useState<Date | string | null>(null);
 
   // today's date as minimum selectable date
@@ -42,12 +42,18 @@ export default function BookingForm() {
     const form = e.currentTarget;
     const formData = new FormData(form);
 
-    const start = String(formData.get("start") || "").trim();
-    const end = String(formData.get("end") || "").trim();
-    const capacity = String(formData.get("capacity") || "").trim();
-    const sort = String(formData.get("sort") || "").trim();
+    const start = String(formData.get("start") || "").trim();     // "08:00"
+    const end = String(formData.get("end") || "").trim();         // "12:00"
+    const capacity = String(formData.get("capacity") || "").trim(); // "2-4" etc.
 
     console.log("[BOOKING FORM] raw dateValue on submit:", dateValue);
+    console.log("[BOOKING FORM] filters:", { start, end, capacity });
+
+    // 🔹 Validate time range: end must be later than start when both are chosen
+    if (start && end && end <= start) {
+      alert("Sluttidspunkt skal være senere end starttidspunkt.");
+      return;
+    }
 
     if (!dateValue) {
       alert("Vælg venligst en dato.");
@@ -119,7 +125,6 @@ export default function BookingForm() {
     if (start) params.set("start", start);
     if (end) params.set("end", end);
     if (capacity) params.set("capacity", capacity);
-    if (sort) params.set("sort", sort);
 
     const qs = params.toString();
     if (qs) url += `?${qs}`;
@@ -212,7 +217,7 @@ export default function BookingForm() {
           </label>
         </div>
 
-        {/* Kapacitet */}
+        {/* Kapacitet – nu med name="capacity" så den kommer med i URL */}
         <div className="space-y-2">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-gray-700">
@@ -228,23 +233,6 @@ export default function BookingForm() {
               <option value="2-4">2-4</option>
               <option value="4-8">4-8</option>
               <option value="8+">8+</option>
-            </select>
-          </label>
-        </div>
-
-        {/* Sortering */}
-        <div className="space-y-2">
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-gray-700">
-              Sortering
-            </span>
-            <select
-              name="sort"
-              defaultValue="time"
-              className="block w-full max-w-xs rounded-md border border-gray-200 px-3 py-2 text-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="time">Sorter efter tidspunkt</option>
-              <option value="capacity">Sorter efter kapacitet</option>
             </select>
           </label>
         </div>

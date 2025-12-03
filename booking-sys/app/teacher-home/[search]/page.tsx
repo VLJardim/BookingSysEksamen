@@ -1,7 +1,8 @@
+// src/app/teacher-home/[search]/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import BookingCard from "@/src/components/bookingCard";
 import getBrowserSupabase from "@/src/lib/supabase";
 import ConfirmationModal from "@/src/components/confirmationModal";
@@ -51,6 +52,52 @@ function sortFacilitiesByFloorThenTitle(facilities: Facility[]): Facility[] {
   });
 }
 
+// Parse capacity string and return approx max capacity
+function parseCapacityMax(capacity: string | null | undefined): number {
+  if (!capacity) return 0;
+  const nums = capacity.match(/\d+/g);
+  if (!nums || nums.length === 0) return 0;
+  return Math.max(...nums.map((n) => parseInt(n, 10)).filter((n) => !Number.isNaN(n)));
+}
+
+// Map capacity filter value from UI to a minimum number of seats
+function getMinCapacityFromFilter(filter: string | null): number | null {
+  if (!filter) return null;
+
+  switch (filter) {
+    case "1":
+      return 1;
+    case "2-4":
+      return 2;
+    case "4-8":
+      return 4;
+    case "8+":
+      return 8;
+    default:
+      return null;
+  }
+}
+
+// Check if a slot matches the optional time filters
+function slotMatchesTime(
+  slot: Slot,
+  startFilter: string | null,
+  endFilter: string | null
+): boolean {
+  const slotStartHM = slot.starts_at.slice(11, 16);
+  const slotEndHM = slot.ends_at ? slot.ends_at.slice(11, 16) : null;
+
+  if (startFilter && slotStartHM < startFilter) {
+    return false;
+  }
+
+  if (endFilter && slotEndHM) {
+    if (slotEndHM > endFilter) return false;
+  }
+
+  return true;
+}
+
 function flattenAndSortSlots(facilities: Facility[]) {
   const items: {
     facilityTitle: string;
@@ -91,6 +138,12 @@ export default function TeacherSearchPage() {
   const searchDate =
     Array.isArray(rawSearch) ? rawSearch[0] : rawSearch || "";
 
+  const searchParams = useSearchParams();
+  const startFilter = searchParams.get("start");
+  const endFilter = searchParams.get("end");
+  const capacityFilter = searchParams.get("capacity");
+  const minCapacity = getMinCapacityFromFilter(capacityFilter);
+
   const [loading, setLoading] = useState(false);
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -128,7 +181,6 @@ export default function TeacherSearchPage() {
     fetchData();
   }, [searchDate]);
 
-  // Pæn dato i header
   const prettySearchDate = useMemo(() => {
     if (!searchDate) return "";
     const d = new Date(searchDate + "T00:00:00");
@@ -147,7 +199,6 @@ export default function TeacherSearchPage() {
     return formatted;
   }, [searchDate]);
 
-  // Del lokaler op i tre sektioner
   const {
     sharedFacilities,
     teachingFacilities,
@@ -158,6 +209,14 @@ export default function TeacherSearchPage() {
     const openLearning: Facility[] = [];
 
     for (const fac of facilities) {
+      // Capacity filter at facility level
+      if (minCapacity !== null) {
+        const maxCap = parseCapacityMax(fac.capacity ?? null);
+        if (maxCap < minCapacity) {
+          continue;
+        }
+      }
+
       const desc = (fac.description || "").toLowerCase();
       const type = (fac.facility_type || "").toLowerCase();
 
@@ -173,7 +232,6 @@ export default function TeacherSearchPage() {
       } else if (isOpenLearning) {
         openLearning.push(fac);
       } else {
-        // evt. andre lærer-lokaler → behandles som undervisning
         teaching.push(fac);
       }
     }
@@ -183,7 +241,7 @@ export default function TeacherSearchPage() {
       teachingFacilities: sortFacilitiesByFloorThenTitle(teaching),
       openLearningFacilities: sortFacilitiesByFloorThenTitle(openLearning),
     };
-  }, [facilities]);
+  }, [facilities, minCapacity]);
 
   const sharedSlots = useMemo(
     () => flattenAndSortSlots(sharedFacilities),
@@ -198,7 +256,6 @@ export default function TeacherSearchPage() {
     [openLearningFacilities]
   );
 
-  // Book / override slot
   const handleBookSlot = async (bookingId: string) => {
     try {
       const supabase = getBrowserSupabase();
@@ -320,18 +377,22 @@ export default function TeacherSearchPage() {
     }
   };
 
-  // 🔹 Render med gruppe pr. lokale, men uden overskrift/border
   const renderSlotGrid = (slots: ReturnType<typeof flattenAndSortSlots>) => {
-    if (slots.length === 0) {
+    // Apply time filter BEFORE grouping into boxes
+    const filtered = slots.filter((item) =>
+      slotMatchesTime(item.slot, startFilter, endFilter)
+    );
+
+    if (filtered.length === 0) {
       return (
         <p className="text-sm text-gray-500">
-          Ingen bookinger for denne kategori på denne dag.
+          Ingen bookinger for denne kategori på denne dag med de valgte filtre.
         </p>
       );
     }
 
-    // Group by facility title for spacing
-    const byFacility = slots.reduce<
+    // Group by facility title so each room is visually separated
+    const byFacility = filtered.reduce<
       Record<
         string,
         { facilityTitle: string; floor: string | null | undefined; slot: Slot }[]
@@ -345,43 +406,58 @@ export default function TeacherSearchPage() {
     }, {});
 
     return (
-      <div className="space-y-8">
-        {Object.entries(byFacility).map(([facilityTitle, group]) => (
-          <div
-            key={facilityTitle}
-            className="space-y-3" // 🔹 Kun luft mellem lokaler, ingen tekst/border
-          >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {group.map((item) => {
-                const { timeLabel } = formatBookingInterval(
-                  item.slot.starts_at,
-                  item.slot.ends_at ?? null
-                );
+      <div className="space-y-6">
+        {Object.entries(byFacility).map(([facilityTitle, group]) => {
+          const floor = group[0]?.floor ?? null;
 
-                const isAvailable = item.slot.role === "available";
+          return (
+            <div
+              key={facilityTitle}
+              className="space-y-3 rounded-lg border border-gray-200 bg-white/60 p-4"
+            >
+              <div className="flex items-baseline justify-between">
+                <h3 className="text-md font-semibold text-gray-800">
+                  {facilityTitle}
+                </h3>
+                {floor && (
+                  <span className="text-xs text-gray-500">
+                    {floor}. sal
+                  </span>
+                )}
+              </div>
 
-                return (
-                  <BookingCard
-                    key={item.slot.booking_id}
-                    bookingId={item.slot.booking_id}
-                    roomName={facilityTitle}
-                    date={searchDate}
-                    time={timeLabel}
-                    onBook={handleBookSlot}
-                    actionLabel={
-                      isAvailable ? "Book dette tidsrum" : "Overtag booking"
-                    }
-                    notice={
-                      isAvailable
-                        ? undefined
-                        : "Allerede booket – klik for at overtage bookingen."
-                    }
-                  />
-                );
-              })}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {group.map((item) => {
+                  const { timeLabel } = formatBookingInterval(
+                    item.slot.starts_at,
+                    item.slot.ends_at ?? null
+                  );
+
+                  const isAvailable = item.slot.role === "available";
+
+                  return (
+                    <BookingCard
+                      key={item.slot.booking_id}
+                      bookingId={item.slot.booking_id}
+                      roomName={facilityTitle}
+                      date={searchDate}
+                      time={timeLabel}
+                      onBook={handleBookSlot}
+                      actionLabel={
+                        isAvailable ? "Book dette tidsrum" : "Overtag booking"
+                      }
+                      notice={
+                        isAvailable
+                          ? undefined
+                          : "Allerede booket – klik for at overtage bookingen."
+                      }
+                    />
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -409,7 +485,7 @@ export default function TeacherSearchPage() {
       {!loading && !error && facilities.length > 0 && (
         <div className="space-y-10">
           {sharedSlots.length > 0 && (
-            <section className="space-y-4 mt-8 pt-6 border-t border-gray-200 first:mt-0 first:pt-0 first:border-t-0">
+            <section className="mt-8 space-y-4 border-t border-gray-200 pt-6 first:mt-0 first:border-t-0 first:pt-0">
               <h2 className="text-lg font-semibold">
                 Til studerende og lærere
               </h2>
@@ -418,7 +494,7 @@ export default function TeacherSearchPage() {
           )}
 
           {teachingSlots.length > 0 && (
-            <section className="space-y-4 mt-8 pt-6 border-t border-gray-200 first:mt-0 first:pt-0 first:border-t-0">
+            <section className="mt-8 space-y-4 border-t border-gray-200 pt-6 first:mt-0 first:border-t-0 first:pt-0">
               <h2 className="text-lg font-semibold">
                 Kun lærere – undervisningslokaler
               </h2>
@@ -427,7 +503,7 @@ export default function TeacherSearchPage() {
           )}
 
           {openLearningSlots.length > 0 && (
-            <section className="space-y-4 mt-8 pt-6 border-t border-gray-200 first:mt-0 first:pt-0 first:border-t-0">
+            <section className="mt-8 space-y-4 border-t border-gray-200 pt-6 first:mt-0 first:border-t-0 first:pt-0">
               <h2 className="text-lg font-semibold">
                 Kun lærere – Open Learning
               </h2>

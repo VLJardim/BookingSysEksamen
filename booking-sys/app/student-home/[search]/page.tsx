@@ -1,7 +1,8 @@
+// src/app/student-home/[search]/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import BookingCard from "@/src/components/bookingCard";
 import getBrowserSupabase from "@/src/lib/supabase";
 import ConfirmationModal from "@/src/components/confirmationModal";
@@ -51,6 +52,52 @@ function formatTimeRange(startsAt: string, endsAt?: string | null) {
   return endHM ? `${startHM} - ${endHM}` : startHM;
 }
 
+// Parse capacity string (e.g. "3-4 pers", "20-30", "8+ pers") and return approx max capacity
+function parseCapacityMax(capacity: string | null | undefined): number {
+  if (!capacity) return 0;
+  const nums = capacity.match(/\d+/g);
+  if (!nums || nums.length === 0) return 0;
+  return Math.max(...nums.map((n) => parseInt(n, 10)).filter((n) => !Number.isNaN(n)));
+}
+
+// Map capacity filter value from UI to a minimum number of seats
+function getMinCapacityFromFilter(filter: string | null): number | null {
+  if (!filter) return null;
+
+  switch (filter) {
+    case "1":
+      return 1;
+    case "2-4":
+      return 2; // rooms that can handle 2 or more
+    case "4-8":
+      return 4;
+    case "8+":
+      return 8;
+    default:
+      return null;
+  }
+}
+
+// Check if a slot matches the optional time filters
+function slotMatchesTime(
+  slot: Slot,
+  startFilter: string | null,
+  endFilter: string | null
+): boolean {
+  const slotStartHM = slot.starts_at.slice(11, 16); // "HH:MM"
+  const slotEndHM = slot.ends_at ? slot.ends_at.slice(11, 16) : null;
+
+  if (startFilter && slotStartHM < startFilter) {
+    return false;
+  }
+
+  if (endFilter && slotEndHM) {
+    if (slotEndHM > endFilter) return false;
+  }
+
+  return true;
+}
+
 // Flad liste: sortér efter etage → lokale → starttid
 function flattenAndSortSlots(facilities: Facility[]) {
   const items: {
@@ -91,6 +138,13 @@ export default function SearchPage() {
   const rawSearch = params.search;
   const searchDate =
     Array.isArray(rawSearch) ? rawSearch[0] : rawSearch || "";
+
+  const searchParams = useSearchParams();
+  const startFilter = searchParams.get("start");      // "HH:MM" or null
+  const endFilter = searchParams.get("end");          // "HH:MM" or null
+  const capacityFilter = searchParams.get("capacity"); // "1", "2-4", ...
+
+  const minCapacity = getMinCapacityFromFilter(capacityFilter);
 
   const [loading, setLoading] = useState(false);
   const [facilities, setFacilities] = useState<Facility[]>([]);
@@ -168,31 +222,50 @@ export default function SearchPage() {
     fetchData();
   }, [searchDate]);
 
-  // Filtrer lærer-only lokaler fra for studerende
+  // Filtrer lærer-only lokaler fra for studerende + kapacitet filter
   const visibleFacilities = useMemo(() => {
-    if (role !== "student") return facilities;
+    // 1) Teacher / student access
+    let base = facilities;
+    if (role === "student") {
+      base = facilities.filter((f) => {
+        const desc = (f.description || "").toLowerCase();
+        const type = (f.facility_type || "").toLowerCase();
 
-    return facilities.filter((f) => {
-      const desc = (f.description || "").toLowerCase();
-      const type = (f.facility_type || "").toLowerCase();
+        const isTeacherOnlyDesc =
+          desc.includes("kun lærere") || desc.includes("kun laerere");
 
-      const isTeacherOnlyDesc =
-        desc.includes("kun lærere") || desc.includes("kun laerere");
+        const isTeacherOnlyType =
+          type === "open learning" || type === "undervisning";
 
-      const isTeacherOnlyType =
-        type === "open learning" || type === "undervisning";
+        if (isTeacherOnlyDesc || isTeacherOnlyType) return false;
+        return true;
+      });
+    }
 
-      if (isTeacherOnlyDesc || isTeacherOnlyType) return false;
-      return true;
+    // 2) Capacity filter (same for students + teachers)
+    if (minCapacity == null) return base;
+
+    return base.filter((f) => {
+      const maxCap = parseCapacityMax(f.capacity ?? null);
+      return maxCap >= minCapacity;
     });
-  }, [facilities, role]);
+  }, [facilities, role, minCapacity]);
 
+  // Flad liste og sortering (etage → lokale → starttid)
   const sortedSlots = useMemo(
     () => flattenAndSortSlots(visibleFacilities),
     [visibleFacilities]
   );
 
-  // Pæn dato til header ("4. December")
+  // Anvend time-filter på slots
+  const filteredSlots = useMemo(
+    () =>
+      sortedSlots.filter((item) =>
+        slotMatchesTime(item.slot, startFilter, endFilter)
+      ),
+    [sortedSlots, startFilter, endFilter]
+  );
+
   const prettySearchDate = useMemo(() => {
     if (!searchDate) return "";
     const d = new Date(searchDate + "T00:00:00");
@@ -211,7 +284,6 @@ export default function SearchPage() {
     return formatted;
   }, [searchDate]);
 
-  // Book slot
   const handleBookSlot = async (bookingId: string) => {
     try {
       const supabase = getBrowserSupabase();
@@ -307,9 +379,9 @@ export default function SearchPage() {
     }
   };
 
-  // 🔹 Group student-visible slots by facility (for visual separation)
+  // Group filtered slots by facility to get your “boxes”
   const groupedByFacility = useMemo(() => {
-    return sortedSlots.reduce<
+    return filteredSlots.reduce<
       Record<
         string,
         { facilityTitle: string; floor: string | null | undefined; slot: Slot }[]
@@ -321,7 +393,7 @@ export default function SearchPage() {
       acc[item.facilityTitle].push(item);
       return acc;
     }, {});
-  }, [sortedSlots]);
+  }, [filteredSlots]);
 
   return (
     <main className="min-h-screen bg-gray-50 p-8">
@@ -335,43 +407,63 @@ export default function SearchPage() {
       {loading && <p>Henter ledige tider...</p>}
       {error && <p className="mb-4 text-red-600">Fejl: {error}</p>}
 
-      {!loading && !error && sortedSlots.length === 0 && (
+      {!loading && !error && filteredSlots.length === 0 && (
         <p className="text-gray-600">
-          Der blev ikke fundet ledige lokaler på denne dato.
+          Der blev ikke fundet ledige lokaler på denne dato med de valgte
+          filtre.
         </p>
       )}
 
-      {!loading && !error && sortedSlots.length > 0 && (
-        <section className="space-y-4 mt-6">
-          <h2 className="text-lg font-semibold">Til studerende og lærere</h2>
+      {!loading && !error && filteredSlots.length > 0 && (
+        <section className="mt-6 space-y-4">
+          <h2 className="text-lg font-semibold">
+            Til studerende og lærere
+          </h2>
 
-          <div className="space-y-8">
-            {Object.entries(groupedByFacility).map(([facilityTitle, group]) => (
-              <div
-                key={facilityTitle}
-                className="space-y-3" // 🔹 spacing between facility-groups, no header/border
-              >
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {group.map((item) => {
-                    const timeLabel = formatTimeRange(
-                      item.slot.starts_at,
-                      item.slot.ends_at ?? null
-                    );
+          <div className="space-y-6">
+            {Object.entries(groupedByFacility).map(
+              ([facilityTitle, group]) => {
+                const floor = group[0]?.floor ?? null;
 
-                    return (
-                      <BookingCard
-                        key={item.slot.booking_id}
-                        bookingId={item.slot.booking_id}
-                        roomName={facilityTitle}
-                        date={searchDate}
-                        time={timeLabel}
-                        onBook={handleBookSlot}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+                return (
+                  <div
+                    key={facilityTitle}
+                    className="space-y-3 rounded-lg border border-gray-200 bg-white/60 p-4"
+                  >
+                    <div className="flex items-baseline justify-between">
+                      <h3 className="text-md font-semibold text-gray-800">
+                        {facilityTitle}
+                      </h3>
+                      {floor && (
+                        <span className="text-xs text-gray-500">
+                          {floor}. sal
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {group.map((item) => {
+                        const timeLabel = formatTimeRange(
+                          item.slot.starts_at,
+                          item.slot.ends_at ?? null
+                        );
+
+                        return (
+                          <BookingCard
+                            key={item.slot.booking_id}
+                            bookingId={item.slot.booking_id}
+                            roomName={facilityTitle}
+                            date={searchDate}
+                            time={timeLabel}
+                            onBook={handleBookSlot}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+            )}
           </div>
         </section>
       )}
