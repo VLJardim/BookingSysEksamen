@@ -23,12 +23,23 @@ export default function HomePage() {
         return;
       }
 
+      const nowISO = new Date().toISOString();
+
       // Hent KUN elevens egne bookinger (ikke ledige slots)
       const { data, error } = await supabase
         .from("booking")
-        .select("*")
+        .select(
+          `
+          booking_id,
+          starts_at,
+          ends_at,
+          title,
+          facility:facility_id ( title )
+        `
+        )
         .eq("owner", user.id)
         .eq("role", "not_available")
+        .gte("starts_at", nowISO)
         .order("starts_at", { ascending: true })
         .limit(3);
 
@@ -66,19 +77,26 @@ export default function HomePage() {
             const dateLabel = startDate.toLocaleDateString("da-DK", {
               day: "numeric",
               month: "long",
+              timeZone: "Europe/Copenhagen"
             });
 
             const timeLabel = `${startDate.toLocaleTimeString("da-DK", {
               hour: "2-digit",
               minute: "2-digit",
+              timeZone: "Europe/Copenhagen"
             })}-${
               endDate
                 ? endDate.toLocaleTimeString("da-DK", {
                     hour: "2-digit",
                     minute: "2-digit",
+                    timeZone: "Europe/Copenhagen"
                   })
                 : "Ikke angivet"
             }`;
+
+            // Use facility title from join, or fallback to parsed title
+            const facilityName = booking.facility?.title || 
+              (booking.title ? booking.title.split(" – ")[0] : "Lokale");
 
             return (
               <div
@@ -88,10 +106,10 @@ export default function HomePage() {
                 <h3 className="font-bold text-lg mb-3">{dateLabel}</h3>
                 <div className="space-y-1 mb-4">
                   <p className="text-sm text-gray-700">
-                    {booking.title || "Booking"}
+                    {facilityName}
                   </p>
                   <p className="text-sm text-gray-700">
-                    Tidsrum: {timeLabel}
+                    {timeLabel}
                   </p>
                 </div>
                 <Link

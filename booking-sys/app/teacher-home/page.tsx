@@ -4,7 +4,6 @@ import BookingForm from "@/src/forms/bookingForm";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import getBrowserSupabase from "@/src/lib/supabase";
-import { formatBookingInterval } from "@/src/utils/time";
 
 export default function TeacherHomePage() {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -32,6 +31,7 @@ export default function TeacherHomePage() {
           booking_id,
           starts_at,
           ends_at,
+          title,
           facility:facility_id ( title )
         `
         )
@@ -65,28 +65,47 @@ export default function TeacherHomePage() {
           <p className="text-gray-500">Ingen kommende bookinger</p>
         ) : (
           bookings.map((booking) => {
-            const { dateLabel, timeLabel } = formatBookingInterval(
-              booking.starts_at,
-              booking.ends_at ?? null
-            );
+            const startDate = new Date(booking.starts_at);
+            const endDate = booking.ends_at ? new Date(booking.ends_at) : null;
 
-            const roomTitle =
-              booking.facility?.title ?? "Lokale";
+            const dateLabel = startDate.toLocaleDateString("da-DK", {
+              day: "numeric",
+              month: "long",
+              timeZone: "Europe/Copenhagen"
+            });
+
+            const timeLabel = `${startDate.toLocaleTimeString("da-DK", {
+              hour: "2-digit",
+              minute: "2-digit",
+              timeZone: "Europe/Copenhagen"
+            })}-${
+              endDate
+                ? endDate.toLocaleTimeString("da-DK", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    timeZone: "Europe/Copenhagen"
+                  })
+                : "Ikke angivet"
+            }`;
+
+            // Use facility title from join, or fallback to parsed title
+            const facilityName = booking.facility?.title || 
+              (booking.title ? booking.title.split(" – ")[0] : "Lokale");
 
             return (
               <div
                 key={booking.booking_id}
                 className="mb-6 p-4 bg-gray-50 rounded-lg"
               >
-                <h3 className="font-bold text-lg mb-1">
-                  {dateLabel}
-                </h3>
-                <p className="text-sm text-gray-700 mb-1">
-                  {roomTitle}
-                </p>
-                <p className="text-sm text-gray-700 mb-4">
-                  Tidsrum: {timeLabel}
-                </p>
+                <h3 className="font-bold text-lg mb-3">{dateLabel}</h3>
+                <div className="space-y-1 mb-4">
+                  <p className="text-sm text-gray-700">
+                    {facilityName}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    {timeLabel}
+                  </p>
+                </div>
                 <Link
                   href={`/teacher-home/${booking.booking_id}`}
                   className="block w-full bg-[#1864AB] text-white text-center py-3 rounded-full hover:bg-[#4E7CD9] transition-colors font-medium"

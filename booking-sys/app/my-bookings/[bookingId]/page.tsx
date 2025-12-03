@@ -87,18 +87,18 @@ export default function EditBooking() {
 
       setBooking(data as never);
 
-      // Parse the existing booking times
+      // Parse the existing booking times as UTC
       const startsAt = new Date(data.starts_at);
       const endsAt = new Date(data.ends_at);
 
       // Set date (YYYY-MM-DD format for input)
       setSelectedDate(startsAt.toISOString().split("T")[0]);
 
-      // Set times (HH:00 format)
+      // Set times (HH:00 format) - use UTC hours
       setStartTime(
-        `${startsAt.getHours().toString().padStart(2, "0")}:00`
+        `${startsAt.getUTCHours().toString().padStart(2, "0")}:00`
       );
-      setEndTime(`${endsAt.getHours().toString().padStart(2, "0")}:00`);
+      setEndTime(`${endsAt.getUTCHours().toString().padStart(2, "0")}:00`);
 
       setLoading(false);
     };
@@ -151,11 +151,9 @@ export default function EditBooking() {
       return;
     }
 
-    // Create ISO timestamp strings
-    const startsAt = new Date(
-      `${selectedDate}T${startTime}:00`
-    ).toISOString();
-    const endsAt = new Date(`${selectedDate}T${endTime}:00`).toISOString();
+    // Create ISO timestamp strings in UTC
+    const startsAt = `${selectedDate}T${startTime}:00Z`;
+    const endsAt = `${selectedDate}T${endTime}:00Z`;
 
     const supabase = getBrowserSupabase();
 
