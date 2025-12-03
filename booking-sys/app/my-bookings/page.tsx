@@ -153,48 +153,61 @@ export default function MyBookingsPage() {
 
         {!loading && !error && bookings.length > 0 && (
           <div className="grid gap-4">
-            {bookings.map((booking) => (
-              <div
-                key={booking.booking_id}
-                className="flex items-center justify-between rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow"
-              >
-                <div>
-                  <h3 className="mb-2 text-xl font-semibold">
-                    {booking.title}
-                  </h3>
-                  <p className="text-gray-600">
-                    Start:{" "}
-                    {new Date(booking.starts_at).toLocaleString("da-DK")}
-                  </p>
-                  <p className="text-gray-600">
-                    Slut:{" "}
-                    {booking.ends_at
-                      ? new Date(booking.ends_at).toLocaleString("da-DK")
-                      : "Ikke angivet"}
-                  </p>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      router.push(`/my-bookings/${booking.booking_id}`)
-                    }
-                    className="rounded-md bg-[#1864AB] px-4 py-2 text-sm font-medium text-white hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    Rediger
-                  </button>
+            {bookings.map((booking) => {
+              const startDate = new Date(booking.starts_at);
+              const endDate = booking.ends_at ? new Date(booking.ends_at) : null;
+              
+              // Format date as "2. December" (day + month name)
+              let dateStr = startDate.toLocaleDateString("da-DK", {
+                month: "long",
+                day: "numeric",
+                timeZone: "Europe/Copenhagen"
+              });
+              // Capitalize month name (after "day. ")
+              dateStr = dateStr.replace(/(\d+\.\s*)([a-z])/, (match, prefix, firstLetter) => 
+                prefix + firstLetter.toUpperCase()
+              );
+              
+              // Format time range as "12:00-14:00" (extract HH:MM from ISO string)
+              const formatTime = (iso: string) => {
+                const timePart = iso.split("T")[1] ?? "";
+                return timePart.slice(0, 5); // "HH:MM"
+              };
+              
+              const startTime = formatTime(booking.starts_at);
+              const endTime = booking.ends_at ? formatTime(booking.ends_at) : "Ikke angivet";
+              const timeRange = booking.ends_at ? `${startTime}-${endTime}` : startTime;
+              
+              // Extract just the facility name from title: "3.6 – 2025-12-02 08:00" becomes "3.6"
+              let facilityName = booking.title;
+              const titleMatch = booking.title.match(/^(.+?)\s*–/);
+              if (titleMatch) {
+                facilityName = titleMatch[1];
+              }
+              
+              return (
+                <div
+                  key={booking.booking_id}
+                  className="flex items-center justify-between rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow"
+                >
+                  <div>
+                    <h3 className="mb-2 text-xl font-semibold">
+                      {facilityName}
+                    </h3>
+                    <p className="text-gray-600">{dateStr}</p>
+                    <p className="text-gray-600">{timeRange}</p>
+                  </div>
 
                   <button
                     type="button"
                     onClick={() => openCancelModal(booking)}
-                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
                   >
                     Annuller booking
                   </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

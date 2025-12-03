@@ -133,7 +133,7 @@ export default function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="bg-[#1864AB] text-white py-3 px-8 rounded-full hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+          className="bg-[#1864AB] text-white py-2 px-4 rounded-full hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed font-medium"
         >
           {loading ? 'Logger ind...' : 'Log ind'}
         </button>
@@ -141,7 +141,7 @@ export default function LoginForm() {
         <button
           type="button"
           onClick={() => (window.location.href = '/register')}
-          className="bg-gray-600 text-white py-3 px-8 rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+          className="bg-gray-600 text-white py-2 px-4 rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors font-medium"
         >
           Opret ny konto
         </button>

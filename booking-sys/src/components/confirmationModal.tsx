@@ -56,14 +56,14 @@ export default function ConfirmationModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
           >
             {cancelLabel}
           </button>
           <button
             type="button"
             onClick={handleConfirm}
-            className={`rounded-md px-4 py-2 text-sm font-medium text-white focus:outline-none focus:ring-2 ${confirmClasses}`}
+            className={`rounded-full px-4 py-2 text-sm font-medium text-white focus:outline-none focus:ring-2 transition-colors ${confirmClasses}`}
           >
             {confirmLabel}
           </button>

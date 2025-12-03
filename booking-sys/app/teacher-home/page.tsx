@@ -71,10 +71,28 @@ export default function HomePage() {
           <p className="text-gray-500">Ingen kommende bookinger</p>
         ) : (
           bookings.map((booking) => {
-            const { dateLabel, timeLabel } = formatBookingInterval(
-              booking.starts_at,
-              booking.ends_at ?? null
+            const startDate = new Date(booking.starts_at);
+            
+            // Format date as "2. December" (day + month name)
+            let dateStr = startDate.toLocaleDateString("da-DK", {
+              month: "long",
+              day: "numeric",
+              timeZone: "Europe/Copenhagen"
+            });
+            // Capitalize month name (after "day. ")
+            dateStr = dateStr.replace(/(\d+\.\s*)([a-z])/, (match, prefix, firstLetter) => 
+              prefix + firstLetter.toUpperCase()
             );
+            
+            // Format time range as "12:00-14:00" (extract HH:MM from ISO string)
+            const formatTime = (iso: string) => {
+              const timePart = iso.split("T")[1] ?? "";
+              return timePart.slice(0, 5); // "HH:MM"
+            };
+            
+            const startTime = formatTime(booking.starts_at);
+            const endTime = booking.ends_at ? formatTime(booking.ends_at) : "";
+            const timeRange = endTime ? `${startTime}-${endTime}` : startTime;
 
             // Use facility title from join, or fallback to parsed title
             const facilityName =
@@ -84,20 +102,14 @@ export default function HomePage() {
             return (
               <div
                 key={booking.booking_id}
-                className="mb-6 p-4 bg-gray-50 rounded-lg"
+                className="mb-4 p-4 bg-gray-50 rounded-lg"
               >
-                <h3 className="font-bold text-lg mb-3">{dateLabel}</h3>
-                <div className="space-y-1 mb-4">
-                  <p className="text-sm text-gray-700">
-                    {facilityName}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    {timeLabel}
-                  </p>
-                </div>
+                <h3 className="font-bold text-lg mb-2">{facilityName}</h3>
+                <p className="text-sm text-gray-600">{dateStr}</p>
+                <p className="text-sm text-gray-600 mb-3">{timeRange}</p>
                 <Link
-                  href={`/student-home/${booking.booking_id}`}
-                  className="block w-full bg-[#1864AB] text-white text-center py-3 rounded-full hover:bg-[#4E7CD9] transition-colors font-medium"
+                  href="/my-bookings"
+                  className="block w-full bg-[#1864AB] text-white text-center py-2 rounded-full hover:bg-[#4E7CD9] transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   Se booking
                 </Link>

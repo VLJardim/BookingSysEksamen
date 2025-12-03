@@ -48,7 +48,7 @@ export default function ProfilePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Change Password Card */}
             <Link href="/profile/change-password">
-              <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer">
+              <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer h-full">
                 <div className="flex flex-col items-center text-center">
                   <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
                     <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -65,7 +65,7 @@ export default function ProfilePage() {
 
             {/* Security Information Card */}
             <Link href="/profile/security-inf">
-              <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer">
+              <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer h-full">
                 <div className="flex flex-col items-center text-center">
                   <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
                     <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,7 +83,7 @@ export default function ProfilePage() {
             {/* Log Off Card */}
             <div 
               onClick={handleLogout}
-              className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+              className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer h-full"
             >
               <div className="flex flex-col items-center text-center">
                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
