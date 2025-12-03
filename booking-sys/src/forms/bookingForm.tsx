@@ -6,10 +6,19 @@ import { useState } from "react";
 import getBrowserSupabase from "@/src/lib/supabase";
 import { DatePickerInput } from "@mantine/dates";
 
-// Generate time options in hourly intervals
-const generateTimeOptions = () => {
+// Generate time options for start (8-14) and end (10-16)
+const generateStartTimeOptions = () => {
   const times = [];
-  for (let hour = 8; hour < 16; hour++) {
+  for (let hour = 8; hour <= 14; hour++) {
+    const hourStr = hour.toString().padStart(2, "0");
+    times.push(`${hourStr}:00`);
+  }
+  return times;
+};
+
+const generateEndTimeOptions = () => {
+  const times = [];
+  for (let hour = 10; hour <= 16; hour++) {
     const hourStr = hour.toString().padStart(2, "0");
     times.push(`${hourStr}:00`);
   }
@@ -18,7 +27,8 @@ const generateTimeOptions = () => {
 
 export default function BookingForm() {
   const router = useRouter();
-  const timeOptions = generateTimeOptions();
+  const startTimeOptions = generateStartTimeOptions();
+  const endTimeOptions = generateEndTimeOptions();
 
   // kontrolleret værdi til dato-feltet
   const [dateValue, setDateValue] = useState<string | null>(null);
@@ -37,9 +47,24 @@ export default function BookingForm() {
 
     if (!dateValue) return; // dato er påkrævet og skal være hverdag
 
-    // Parse the date string (DD/MM/YYYY format)
-    const [dayStr, monthStr, yearStr] = dateValue.split("/");
-    const dateObj = new Date(parseInt(yearStr), parseInt(monthStr) - 1, parseInt(dayStr));
+    // DatePickerInput returns date in YYYY-MM-DD format despite valueFormat
+    const parts = dateValue.split("-");
+    
+    if (parts.length !== 3) {
+      alert("Ugyldig datoformat. Vælg venligst en dato.");
+      return;
+    }
+    
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]);
+    const day = parseInt(parts[2]);
+    
+    if (isNaN(day) || isNaN(month) || isNaN(year)) {
+      alert("Ugyldig dato. Vælg venligst en dato fra kalenderen.");
+      return;
+    }
+    
+    const dateObj = new Date(year, month - 1, day);
 
     // Check if selected date is a weekend
     const selectedDay = dateObj.getDay();
@@ -48,8 +73,8 @@ export default function BookingForm() {
       return;
     }
 
-    // Convert date to YYYY-MM-DD format
-    const dateStr = `${yearStr}-${monthStr.padStart(2, "0")}-${dayStr.padStart(2, "0")}`;
+    // Date is already in YYYY-MM-DD format
+    const dateStr = dateValue;
 
     // 🔹 Find brugerens email for at afgøre om det er lærer eller elev
     const supabase = getBrowserSupabase();
@@ -118,7 +143,7 @@ export default function BookingForm() {
               className="block w-full max-w-xs px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-500"
             >
               <option value="">Vælg tidspunkt</option>
-              {timeOptions.map((time) => (
+              {startTimeOptions.map((time) => (
                 <option key={`start-${time}`} value={time}>
                   {time}
                 </option>
@@ -140,7 +165,7 @@ export default function BookingForm() {
               className="block w-full max-w-xs px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-500"
             >
               <option value="">Vælg tidspunkt</option>
-              {timeOptions.map((time) => (
+              {endTimeOptions.map((time) => (
                 <option key={`end-${time}`} value={time}>
                   {time}
                 </option>

@@ -41,7 +41,7 @@ export default function HomePage() {
         )
         .eq("owner", user.id)
         .eq("role", "not_available")
-        .gte("starts_at", nowISO)
+        .gte("ends_at", nowISO)
         .order("starts_at", { ascending: true })
         .limit(3);
 

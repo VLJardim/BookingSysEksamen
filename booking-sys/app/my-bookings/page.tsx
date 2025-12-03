@@ -55,10 +55,13 @@ export default function MyBookingsPage() {
         setError(null);
 
         const supabase = getBrowserSupabase();
+        const nowISO = new Date().toISOString();
+        
         const { data, error } = await supabase
           .from("booking")
           .select("*")
           .eq("owner", userId)
+          .gte("ends_at", nowISO)
           .order("starts_at", { ascending: true });
 
         if (error) {
