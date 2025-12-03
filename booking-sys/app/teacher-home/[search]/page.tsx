@@ -1,4 +1,3 @@
-// src/app/teacher-home/[search]/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -107,9 +106,7 @@ export default function TeacherSearchPage() {
         setError(null);
 
         const res = await fetch(
-          `/api/search?date=${encodeURIComponent(
-            searchDate
-          )}&mode=teacher`
+          `/api/search?date=${encodeURIComponent(searchDate)}&mode=teacher`
         );
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -323,6 +320,7 @@ export default function TeacherSearchPage() {
     }
   };
 
+  // 🔹 Render med gruppe pr. lokale, men uden overskrift/border
   const renderSlotGrid = (slots: ReturnType<typeof flattenAndSortSlots>) => {
     if (slots.length === 0) {
       return (
@@ -332,35 +330,58 @@ export default function TeacherSearchPage() {
       );
     }
 
+    // Group by facility title for spacing
+    const byFacility = slots.reduce<
+      Record<
+        string,
+        { facilityTitle: string; floor: string | null | undefined; slot: Slot }[]
+      >
+    >((acc, item) => {
+      if (!acc[item.facilityTitle]) {
+        acc[item.facilityTitle] = [];
+      }
+      acc[item.facilityTitle].push(item);
+      return acc;
+    }, {});
+
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {slots.map((item) => {
-          const { timeLabel } = formatBookingInterval(
-            item.slot.starts_at,
-            item.slot.ends_at ?? null
-          );
+      <div className="space-y-8">
+        {Object.entries(byFacility).map(([facilityTitle, group]) => (
+          <div
+            key={facilityTitle}
+            className="space-y-3" // 🔹 Kun luft mellem lokaler, ingen tekst/border
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {group.map((item) => {
+                const { timeLabel } = formatBookingInterval(
+                  item.slot.starts_at,
+                  item.slot.ends_at ?? null
+                );
 
-          const isAvailable = item.slot.role === "available";
+                const isAvailable = item.slot.role === "available";
 
-          return (
-            <BookingCard
-              key={item.slot.booking_id}
-              bookingId={item.slot.booking_id}
-              roomName={item.facilityTitle}
-              date={searchDate}
-              time={timeLabel}
-              onBook={handleBookSlot}
-              actionLabel={
-                isAvailable ? "Book dette tidsrum" : "Overtag booking"
-              }
-              notice={
-                isAvailable
-                  ? undefined
-                  : "Allerede booket – klik for at overtage bookingen."
-              }
-            />
-          );
-        })}
+                return (
+                  <BookingCard
+                    key={item.slot.booking_id}
+                    bookingId={item.slot.booking_id}
+                    roomName={facilityTitle}
+                    date={searchDate}
+                    time={timeLabel}
+                    onBook={handleBookSlot}
+                    actionLabel={
+                      isAvailable ? "Book dette tidsrum" : "Overtag booking"
+                    }
+                    notice={
+                      isAvailable
+                        ? undefined
+                        : "Allerede booket – klik for at overtage bookingen."
+                    }
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     );
   };
@@ -388,7 +409,7 @@ export default function TeacherSearchPage() {
       {!loading && !error && facilities.length > 0 && (
         <div className="space-y-10">
           {sharedSlots.length > 0 && (
-            <section className="space-y-4">
+            <section className="space-y-4 mt-8 pt-6 border-t border-gray-200 first:mt-0 first:pt-0 first:border-t-0">
               <h2 className="text-lg font-semibold">
                 Til studerende og lærere
               </h2>
@@ -397,7 +418,7 @@ export default function TeacherSearchPage() {
           )}
 
           {teachingSlots.length > 0 && (
-            <section className="space-y-4">
+            <section className="space-y-4 mt-8 pt-6 border-t border-gray-200 first:mt-0 first:pt-0 first:border-t-0">
               <h2 className="text-lg font-semibold">
                 Kun lærere – undervisningslokaler
               </h2>
@@ -406,7 +427,7 @@ export default function TeacherSearchPage() {
           )}
 
           {openLearningSlots.length > 0 && (
-            <section className="space-y-4">
+            <section className="space-y-4 mt-8 pt-6 border-t border-gray-200 first:mt-0 first:pt-0 first:border-t-0">
               <h2 className="text-lg font-semibold">
                 Kun lærere – Open Learning
               </h2>

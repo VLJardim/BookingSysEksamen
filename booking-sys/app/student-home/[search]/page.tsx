@@ -1,4 +1,3 @@
-// src/app/student-home/[search]/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -47,7 +46,7 @@ type BookingModalConfig = {
 
 // Vis tid præcis som i DB (ignorerer timezone)
 function formatTimeRange(startsAt: string, endsAt?: string | null) {
-  const startHM = startsAt.slice(11, 16); // "HH:MM"
+  const startHM = startsAt.slice(11, 16);
   const endHM = endsAt ? endsAt.slice(11, 16) : "";
   return endHM ? `${startHM} - ${endHM}` : startHM;
 }
@@ -292,7 +291,8 @@ export default function SearchPage() {
 
       setBookingModal({
         title: "Booking gennemført",
-        message: "Dit lokale er nu booket. Du kan se det under 'Mine bookinger'.",
+        message:
+          "Dit lokale er nu booket. Du kan se det under 'Mine bookinger'.",
         confirmLabel: "OK",
         cancelLabel: "Luk",
       });
@@ -306,6 +306,22 @@ export default function SearchPage() {
       });
     }
   };
+
+  // 🔹 Group student-visible slots by facility (for visual separation)
+  const groupedByFacility = useMemo(() => {
+    return sortedSlots.reduce<
+      Record<
+        string,
+        { facilityTitle: string; floor: string | null | undefined; slot: Slot }[]
+      >
+    >((acc, item) => {
+      if (!acc[item.facilityTitle]) {
+        acc[item.facilityTitle] = [];
+      }
+      acc[item.facilityTitle].push(item);
+      return acc;
+    }, {});
+  }, [sortedSlots]);
 
   return (
     <main className="min-h-screen bg-gray-50 p-8">
@@ -326,29 +342,36 @@ export default function SearchPage() {
       )}
 
       {!loading && !error && sortedSlots.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold">
-            Til studerende og lærere
-          </h2>
+        <section className="space-y-4 mt-6">
+          <h2 className="text-lg font-semibold">Til studerende og lærere</h2>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {sortedSlots.map((item) => {
-              const timeLabel = formatTimeRange(
-                item.slot.starts_at,
-                item.slot.ends_at ?? null
-              );
+          <div className="space-y-8">
+            {Object.entries(groupedByFacility).map(([facilityTitle, group]) => (
+              <div
+                key={facilityTitle}
+                className="space-y-3" // 🔹 spacing between facility-groups, no header/border
+              >
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.map((item) => {
+                    const timeLabel = formatTimeRange(
+                      item.slot.starts_at,
+                      item.slot.ends_at ?? null
+                    );
 
-              return (
-                <BookingCard
-                  key={item.slot.booking_id}
-                  bookingId={item.slot.booking_id}
-                  roomName={item.facilityTitle}
-                  date={searchDate}        // "YYYY-MM-DD" → pæn i BookingCard
-                  time={timeLabel}
-                  onBook={handleBookSlot}
-                />
-              );
-            })}
+                    return (
+                      <BookingCard
+                        key={item.slot.booking_id}
+                        bookingId={item.slot.booking_id}
+                        roomName={facilityTitle}
+                        date={searchDate}
+                        time={timeLabel}
+                        onBook={handleBookSlot}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       )}

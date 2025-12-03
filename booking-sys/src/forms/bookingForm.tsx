@@ -8,7 +8,7 @@ import { DatePickerInput } from "@mantine/dates";
 
 // Generate time options in hourly intervals
 const generateTimeOptions = () => {
-  const times = [];
+  const times: string[] = [];
   for (let hour = 8; hour < 16; hour++) {
     const hourStr = hour.toString().padStart(2, "0");
     times.push(`${hourStr}:00`);
@@ -20,10 +20,10 @@ export default function BookingForm() {
   const router = useRouter();
   const timeOptions = generateTimeOptions();
 
-  // kontrolleret værdi til dato-feltet
-  const [dateValue, setDateValue] = useState<string | null>(null);
+  // 🔹 Accept both Date and string, because runtime shows "2025-12-04" as string
+  const [dateValue, setDateValue] = useState<Date | string | null>(null);
 
-  // dagens dato til minimum
+  // 🔹 today's date as minimum selectable date
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -35,32 +35,63 @@ export default function BookingForm() {
     const start = String(formData.get("start") || "").trim();
     const end = String(formData.get("end") || "").trim();
 
-    if (!dateValue) return; // dato er påkrævet og skal være hverdag
+    console.log("[BOOKING FORM] raw dateValue on submit:", dateValue);
 
-    // Parse the date string (DD/MM/YYYY format)
-    const [dayStr, monthStr, yearStr] = dateValue.split("/");
-    const dateObj = new Date(parseInt(yearStr), parseInt(monthStr) - 1, parseInt(dayStr));
+    if (!dateValue) {
+      alert("Vælg venligst en dato.");
+      return;
+    }
 
-    // Check if selected date is a weekend
-    const selectedDay = dateObj.getDay();
+    // 🔹 Normalize dateValue to a real JS Date
+    let jsDate: Date | null = null;
+
+    if (dateValue instanceof Date) {
+      jsDate = dateValue;
+    } else if (typeof dateValue === "string") {
+      console.log("[BOOKING FORM] parsing string dateValue:", dateValue);
+      const parsed = new Date(dateValue);
+      if (!Number.isNaN(parsed.getTime())) {
+        jsDate = parsed;
+      } else {
+        console.error("[BOOKING FORM] could not parse string date:", dateValue);
+        alert("Ugyldig dato valgt.");
+        return;
+      }
+    }
+
+    if (!jsDate) {
+      console.error("[BOOKING FORM] jsDate is null after normalization");
+      alert("Ugyldig dato valgt.");
+      return;
+    }
+
+    // 🔹 Weekend check (0 = Sunday, 6 = Saturday)
+    const selectedDay = jsDate.getDay();
+    console.log("[BOOKING FORM] selectedDay (0=Sun..6=Sat):", selectedDay);
+
     if (selectedDay === 0 || selectedDay === 6) {
       alert("Du kan kun booke lokaler mandag til fredag.");
       return;
     }
 
-    // Convert date to YYYY-MM-DD format
-    const dateStr = `${yearStr}-${monthStr.padStart(2, "0")}-${dayStr.padStart(2, "0")}`;
+    // 🔹 Convert Date → YYYY-MM-DD for slug
+    const year = jsDate.getFullYear();
+    const month = String(jsDate.getMonth() + 1).padStart(2, "0");
+    const day = String(jsDate.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
 
-    // 🔹 Find brugerens email for at afgøre om det er lærer eller elev
+    console.log("[BOOKING FORM] final slug dateStr:", dateStr);
+
+    // 🔹 Decide teacher vs student by email
     const supabase = getBrowserSupabase();
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    let basePath = "/student-home"; // fallback
-
     const email = user?.email ?? "";
+    console.log("[BOOKING FORM] current user email:", email);
 
+    let basePath = "/student-home"; // fallback
     if (email.endsWith("@ek.dk")) {
       basePath = "/teacher-home";
     } else if (email.endsWith("@stud.ek.dk")) {
@@ -75,6 +106,7 @@ export default function BookingForm() {
     const qs = params.toString();
     if (qs) url += `?${qs}`;
 
+    console.log("[BOOKING FORM] final navigation URL:", url);
     router.push(url);
   }
 
@@ -93,14 +125,26 @@ export default function BookingForm() {
             OBS! Du kan kun booke et lokale i hverdage mellem 8-16.
           </small>
           <DatePickerInput
-            value={dateValue}
-            onChange={setDateValue}
+            // 🔹 Always give Mantine a Date | null, even if our state currently is a string
+            value={
+              dateValue instanceof Date
+                ? dateValue
+                : typeof dateValue === "string"
+                ? new Date(dateValue)
+                : null
+            }
+            onChange={(value) => {
+              console.log("[BOOKING FORM] onChange value:", value);
+              // Mantine should normally give us Date | null here
+              setDateValue(value as Date | null);
+            }}
             placeholder="Vælg dato"
             minDate={today}
             valueFormat="DD/MM/YYYY"
             required
             classNames={{
-              input: "max-w-md px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-500"
+              input:
+                "max-w-md px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-500",
             }}
           />
         </div>
@@ -158,9 +202,7 @@ export default function BookingForm() {
               defaultValue=""
               className="block w-full max-w-xs px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-500"
             >
-              <option value="">
-                Vælg kapacitet
-              </option>
+              <option value="">Vælg kapacitet</option>
               <option value="1">1</option>
               <option value="2-4">2-4</option>
               <option value="4-8">4-8</option>
