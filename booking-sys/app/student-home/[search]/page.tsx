@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import BookingCard from "@/src/components/bookingCard";
 import getBrowserSupabase from "@/src/lib/supabase";
 import ConfirmationModal from "@/src/components/confirmationModal";
+import { formatBookingInterval } from "@/src/utils/time";
 
 type RouteParams = { search: string };
 
@@ -46,14 +47,6 @@ type BookingModalConfig = {
   cancelLabel?: string;
 };
 
-// Hjælper til at vise tid præcis som i DB (ignorerer timezone)
-// Forventer ISO string: "YYYY-MM-DDTHH:MM:SS..."
-function formatTimeRange(startsAt: string, endsAt?: string | null) {
-  const startHM = startsAt.slice(11, 16); // "HH:MM"
-  const endHM = endsAt ? endsAt.slice(11, 16) : "";
-  return endHM ? `${startHM} - ${endHM}` : startHM;
-}
-
 export default function SearchPage() {
   const params = useParams<RouteParams>();
   const rawSearch = params.search;
@@ -84,7 +77,6 @@ export default function SearchPage() {
         return;
       }
 
-      // Simpelt call uden at slås med Supabase generics
       const { data, error } = await (supabase as any)
         .from("userlist")
         .select("role")
@@ -158,7 +150,7 @@ export default function SearchPage() {
     });
   }, [facilities, role]);
 
-  // 4) Book slot direkte via Supabase (ingen API-route, ingen cookies i din kode)
+  // 4) Book slot direkte via Supabase
   const handleBookSlot = async (bookingId: string) => {
     try {
       const supabase = getBrowserSupabase();
@@ -306,19 +298,11 @@ export default function SearchPage() {
               ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {facility.slots.map((slot) => {
-                    const start = new Date(slot.starts_at);
-                    const end = slot.ends_at ? new Date(slot.ends_at) : null;
-
-                    const dateLabel = start.toLocaleDateString("da-DK", {
-                      weekday: "short",
-                      day: "2-digit",
-                      month: "2-digit",
-                    });
-
-                    const timeLabel = formatTimeRange(
-                      slot.starts_at,
-                      slot.ends_at ?? null
-                    );
+                    const { dateLabel, timeLabel } =
+                      formatBookingInterval(
+                        slot.starts_at,
+                        slot.ends_at ?? null
+                      );
 
                     return (
                       <BookingCard

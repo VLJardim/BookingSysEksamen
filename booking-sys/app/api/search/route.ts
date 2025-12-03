@@ -1,11 +1,10 @@
+// app/api/search/route.ts
 import { NextResponse } from "next/server";
 import getAdminSupabase from "@/src/lib/serverSupabase";
 
-// Small helpers
 function parseDateParam(dateStr: string | null): Date | null {
   if (!dateStr) return null;
-  // Expect YYYY-MM-DD
-  const d = new Date(dateStr + "T00:00:00Z");
+  const d = new Date(dateStr + "T00:00:00Z"); // YYYY-MM-DD expected
   if (Number.isNaN(d.getTime())) return null;
   return d;
 }
@@ -23,24 +22,12 @@ export async function GET(req: Request) {
     );
   }
 
-  // Build [start, end) UTC range for that calendar day
   const start = new Date(day.getTime());
   const end = new Date(day.getTime());
   end.setUTCDate(end.getUTCDate() + 1);
 
   const startISO = start.toISOString();
   const endISO = end.toISOString();
-
-  console.log(
-    "[/api/search] REQUEST date =",
-    dateParam,
-    "mode =",
-    mode,
-    "range =",
-    startISO,
-    "->",
-    endISO
-  );
 
   const supabase = getAdminSupabase();
 
@@ -66,8 +53,7 @@ export async function GET(req: Request) {
     .lt("starts_at", endISO)
     .order("starts_at", { ascending: true });
 
-  // Students: only available.
-  // Teachers (mode=teacher): see all roles.
+  // 🔹 All non-teacher usage (student or anonymous) → ONLY available slots
   if (mode !== "teacher") {
     query = query.eq("role", "available");
   }
@@ -129,6 +115,7 @@ export async function GET(req: Request) {
     });
   }
 
-  const result = Array.from(facilitiesMap.values());
-  return NextResponse.json(result, { status: 200 });
+  return NextResponse.json(Array.from(facilitiesMap.values()), {
+    status: 200,
+  });
 }

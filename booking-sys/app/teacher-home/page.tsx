@@ -1,17 +1,20 @@
+// src/app/student-home/page.tsx
 "use client";
 
 import BookingForm from "@/src/forms/bookingForm";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import getBrowserSupabase from "@/src/lib/supabase";
+import { formatBookingInterval } from "@/src/utils/time";
 
-export default function TeacherHomePage() {
+export default function HomePage() {
   const [bookings, setBookings] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchBookings() {
       const supabase = getBrowserSupabase();
 
+      // Find current user
       const {
         data: { user },
         error: userError,
@@ -24,6 +27,7 @@ export default function TeacherHomePage() {
 
       const nowISO = new Date().toISOString();
 
+      // Hent KUN elevens egne bookinger (ikke ledige slots)
       const { data, error } = await supabase
         .from("booking")
         .select(
@@ -42,7 +46,7 @@ export default function TeacherHomePage() {
         .limit(3);
 
       if (error) {
-        console.error("Failed to load teacher bookings", error);
+        console.error("Failed to load student bookings", error);
         setBookings([]);
         return;
       }
@@ -56,7 +60,9 @@ export default function TeacherHomePage() {
   return (
     <div className="flex">
       <div className="flex-1 py-8 px-20">
-        <BookingForm />
+        <div>
+          <BookingForm />
+        </div>
       </div>
 
       <div className="w-80 bg-white p-6">
@@ -65,31 +71,14 @@ export default function TeacherHomePage() {
           <p className="text-gray-500">Ingen kommende bookinger</p>
         ) : (
           bookings.map((booking) => {
-            const startDate = new Date(booking.starts_at);
-            const endDate = booking.ends_at ? new Date(booking.ends_at) : null;
-
-            const dateLabel = startDate.toLocaleDateString("da-DK", {
-              day: "numeric",
-              month: "long",
-              timeZone: "Europe/Copenhagen"
-            });
-
-            const timeLabel = `${startDate.toLocaleTimeString("da-DK", {
-              hour: "2-digit",
-              minute: "2-digit",
-              timeZone: "Europe/Copenhagen"
-            })}-${
-              endDate
-                ? endDate.toLocaleTimeString("da-DK", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    timeZone: "Europe/Copenhagen"
-                  })
-                : "Ikke angivet"
-            }`;
+            const { dateLabel, timeLabel } = formatBookingInterval(
+              booking.starts_at,
+              booking.ends_at ?? null
+            );
 
             // Use facility title from join, or fallback to parsed title
-            const facilityName = booking.facility?.title || 
+            const facilityName =
+              booking.facility?.title ||
               (booking.title ? booking.title.split(" – ")[0] : "Lokale");
 
             return (
@@ -107,7 +96,7 @@ export default function TeacherHomePage() {
                   </p>
                 </div>
                 <Link
-                  href={`/teacher-home/${booking.booking_id}`}
+                  href={`/student-home/${booking.booking_id}`}
                   className="block w-full bg-[#1864AB] text-white text-center py-3 rounded-full hover:bg-[#4E7CD9] transition-colors font-medium"
                 >
                   Se booking

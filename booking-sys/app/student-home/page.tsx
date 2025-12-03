@@ -1,9 +1,11 @@
-'use client';
+// src/app/student-home/page.tsx
+"use client";
 
 import BookingForm from "@/src/forms/bookingForm";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import getBrowserSupabase from "@/src/lib/supabase";
+import { formatBookingInterval } from "@/src/utils/time";
 
 export default function HomePage() {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -69,33 +71,14 @@ export default function HomePage() {
           <p className="text-gray-500">Ingen kommende bookinger</p>
         ) : (
           bookings.map((booking) => {
-            const startDate = new Date(booking.starts_at);
-            const endDate = booking.ends_at
-              ? new Date(booking.ends_at)
-              : null;
-
-            const dateLabel = startDate.toLocaleDateString("da-DK", {
-              day: "numeric",
-              month: "long",
-              timeZone: "Europe/Copenhagen"
-            });
-
-            const timeLabel = `${startDate.toLocaleTimeString("da-DK", {
-              hour: "2-digit",
-              minute: "2-digit",
-              timeZone: "Europe/Copenhagen"
-            })}-${
-              endDate
-                ? endDate.toLocaleTimeString("da-DK", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    timeZone: "Europe/Copenhagen"
-                  })
-                : "Ikke angivet"
-            }`;
+            const { dateLabel, timeLabel } = formatBookingInterval(
+              booking.starts_at,
+              booking.ends_at ?? null
+            );
 
             // Use facility title from join, or fallback to parsed title
-            const facilityName = booking.facility?.title || 
+            const facilityName =
+              booking.facility?.title ||
               (booking.title ? booking.title.split(" – ")[0] : "Lokale");
 
             return (
