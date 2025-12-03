@@ -1,4 +1,3 @@
-// app/api/search/route.ts
 import { NextResponse } from "next/server";
 import getAdminSupabase from "@/src/lib/serverSupabase";
 
@@ -14,6 +13,7 @@ function parseDateParam(dateStr: string | null): Date | null {
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const dateParam = url.searchParams.get("date");
+  const mode = url.searchParams.get("mode"); // "teacher" | null
 
   const day = parseDateParam(dateParam);
   if (!day) {
@@ -34,6 +34,8 @@ export async function GET(req: Request) {
   console.log(
     "[/api/search] REQUEST date =",
     dateParam,
+    "mode =",
+    mode,
     "range =",
     startISO,
     "->",
@@ -42,8 +44,7 @@ export async function GET(req: Request) {
 
   const supabase = getAdminSupabase();
 
-  // Let Supabase filter by date + role in the DB
-  const { data, error } = await supabase
+  let query = supabase
     .from("booking")
     .select(
       `
@@ -51,6 +52,7 @@ export async function GET(req: Request) {
       starts_at,
       ends_at,
       role,
+      owner,
       facility:facility_id (
         facility_id,
         title,
@@ -60,10 +62,17 @@ export async function GET(req: Request) {
       )
     `
     )
-    .eq("role", "available")
     .gte("starts_at", startISO)
     .lt("starts_at", endISO)
     .order("starts_at", { ascending: true });
+
+  // Students: only available.
+  // Teachers (mode=teacher): see all roles.
+  if (mode !== "teacher") {
+    query = query.eq("role", "available");
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("[/api/search] Supabase error:", error);
@@ -74,18 +83,13 @@ export async function GET(req: Request) {
   }
 
   const rows = data ?? [];
-  console.log(
-    "[/api/search] rows from Supabase =",
-    rows.length,
-    "for date =",
-    dateParam
-  );
 
-  // Transform to the Facility[] shape your frontends expect
   type Slot = {
     booking_id: string;
     starts_at: string;
     ends_at?: string | null;
+    role: "available" | "not_available";
+    owner: string | null;
   };
 
   type FacilityDTO = {
@@ -120,16 +124,11 @@ export async function GET(req: Request) {
       booking_id: row.booking_id,
       starts_at: row.starts_at,
       ends_at: row.ends_at,
+      role: row.role,
+      owner: row.owner,
     });
   }
 
   const result = Array.from(facilitiesMap.values());
-  console.log(
-    "[/api/search] facilities returned =",
-    result.length,
-    "for date =",
-    dateParam
-  );
-
   return NextResponse.json(result, { status: 200 });
 }

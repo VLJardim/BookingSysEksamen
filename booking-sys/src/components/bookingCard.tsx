@@ -26,6 +26,25 @@ export default function BookingCard({
 
   const label = actionLabel ?? "Book dette tidsrum";
 
+  // 🔹 Hvis `date` ligner "YYYY-MM-DD", formatter til "3. december" på dansk
+  const prettyDate = (() => {
+    const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+    if (isoDatePattern.test(date)) {
+      const d = new Date(date + "T00:00:00");
+      if (!Number.isNaN(d.getTime())) {
+        return d.toLocaleDateString("da-DK", {
+          day: "numeric",
+          month: "long",      // "december" i stedet for "12"
+          // ingen year → bliver automatisk uden årstal
+        });
+      }
+    }
+
+    // fallback: brug bare den tekst vi fik
+    return date;
+  })();
+
   return (
     <Card
       shadow="sm"
@@ -39,7 +58,7 @@ export default function BookingCard({
           {roomName}
         </Text>
         <Text size="sm" c="dimmed" className="mb-2">
-          {date}
+          {prettyDate}
         </Text>
 
         <Badge color="blue" variant="light">

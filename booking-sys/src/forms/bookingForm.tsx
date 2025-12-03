@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import getBrowserSupabase from "@/src/lib/supabase"; // 🔹 NEW
 
 // Generate time options in hourly intervals
 const generateTimeOptions = () => {
@@ -57,13 +58,29 @@ export default function BookingForm() {
     const form = e.currentTarget;
     const formData = new FormData(form);
 
-    // we now use the controlled `date` state
     const start = String(formData.get("start") || "").trim();
     const end = String(formData.get("end") || "").trim();
 
     if (!date) return; // guard: date is required and must be weekday
 
-    let url = `/student-home/${encodeURIComponent(date)}`;
+    // 🔹 Find current user to decide route (teacher vs student)
+    const supabase = getBrowserSupabase();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    let basePath = "/student-home"; // fallback
+
+    const email = user?.email ?? "";
+
+    if (email.endsWith("@ek.dk")) {
+      basePath = "/teacher-home";
+    } else if (email.endsWith("@stud.ek.dk")) {
+      basePath = "/student-home";
+    }
+
+    let url = `${basePath}/${encodeURIComponent(date)}`;
+
     const params = new URLSearchParams();
     if (start) params.set("start", start);
     if (end) params.set("end", end);
@@ -76,7 +93,9 @@ export default function BookingForm() {
   return (
     <div>
       <form className="space-y-6" onSubmit={onSubmit}>
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Book et lokale</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">
+          Book et lokale
+        </h2>
 
         <div className="space-y-2">
           <span className="block text-sm font-medium text-gray-700 mb-1">
@@ -89,7 +108,6 @@ export default function BookingForm() {
             className="cursor-pointer"
             onClick={(e) => {
               const input = e.currentTarget.querySelector("input");
-              // åbner browserens date-picker
               (input as HTMLInputElement | null)?.showPicker?.();
             }}
           >
@@ -176,8 +194,6 @@ export default function BookingForm() {
           Søg
         </button>
       </form>
-
-      {/* TODO: Render upcoming bookings here */}
     </div>
   );
 }

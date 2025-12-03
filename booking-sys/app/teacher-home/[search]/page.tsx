@@ -1,4 +1,3 @@
-// src/app/teacher-home/[search]/page.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -6,6 +5,7 @@ import { useParams } from "next/navigation";
 import BookingCard from "@/src/components/bookingCard";
 import getBrowserSupabase from "@/src/lib/supabase";
 import ConfirmationModal from "@/src/components/confirmationModal";
+import { formatBookingInterval } from "@/src/utils/time";
 
 type RouteParams = { search: string };
 
@@ -13,6 +13,8 @@ type Slot = {
   booking_id: string;
   starts_at: string;
   ends_at?: string | null;
+  role: "available" | "not_available";
+  owner: string | null;
 };
 
 type BookingRow = {
@@ -46,12 +48,10 @@ export default function TeacherSearchPage() {
   const [loading, setLoading] = useState(false);
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  // Modal state for booking success / failure
   const [bookingModal, setBookingModal] =
     useState<BookingModalConfig | null>(null);
 
-  // Hent alle ledige lokaler for den valgte dato via vores API (/api/search)
+  // Hent alle slots (både ledige og bookede) for lærere
   useEffect(() => {
     if (!searchDate) return;
 
@@ -61,7 +61,9 @@ export default function TeacherSearchPage() {
         setError(null);
 
         const res = await fetch(
-          `/api/search?date=${encodeURIComponent(searchDate)}`
+          `/api/search?date=${encodeURIComponent(
+            searchDate
+          )}&mode=teacher`
         );
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -83,7 +85,6 @@ export default function TeacherSearchPage() {
     fetchData();
   }, [searchDate]);
 
-  // Teachers see ALL facilities (no filtering)
   const visibleFacilities = facilities;
 
   // Book / override slot direkte via Supabase
@@ -91,7 +92,6 @@ export default function TeacherSearchPage() {
     try {
       const supabase = getBrowserSupabase();
 
-      // Check if user is logged in
       const {
         data: { user },
         error: userError,
@@ -108,7 +108,7 @@ export default function TeacherSearchPage() {
         return;
       }
 
-      // Fetch current booking row
+      // 🔹 Hent nuværende booking (cast supabase → any for TS)
       const {
         data: existingData,
         error: fetchError,
@@ -132,8 +132,7 @@ export default function TeacherSearchPage() {
         return;
       }
 
-      // Forsøg altid at sætte role = not_available og owner = lærerens id.
-      // Din trigger enforce_booking_rules() afgør, om det er OK (fx lærer over studerende).
+      // 🔹 Forsøg at sætte role = not_available og owner = lærerens id
       const {
         data: updatedData,
         error: updateError,
@@ -182,7 +181,7 @@ export default function TeacherSearchPage() {
         return;
       }
 
-      // Success – fjern tidsrummet fra UI'et (vi viser kun "ledige" kort)
+      // Succes – fjern slot fra UI
       setFacilities((prev) =>
         prev.map((facility) => ({
           ...facility,
@@ -198,7 +197,7 @@ export default function TeacherSearchPage() {
         title: "Booking gennemført",
         message: wasAvailableBefore
           ? "Dit lokale er nu booket."
-          : "Du har nu overtaget denne booking (fx fra en studerende).",
+          : "Du har nu overtaget denne booking.",
         confirmLabel: "OK",
         cancelLabel: "Luk",
       });
@@ -216,19 +215,24 @@ export default function TeacherSearchPage() {
   return (
     <main className="min-h-screen bg-gray-50 p-8">
       <header className="mb-8">
-        <h1 className="mb-2 text-2xl font-bold">Find ledige lokaler (Lærer)</h1>
+        <h1 className="mb-2 text-2xl font-bold">
+          Lokaler og bookinger (Lærer)
+        </h1>
         <p className="text-gray-600">
-          Søgeresultat for:{" "}
-          <span className="font-medium">{searchDate}</span>
+          Dato: <span className="font-medium">{searchDate}</span>
+        </p>
+        <p className="mt-1 text-sm text-gray-500">
+          Blå knapper = ledige tider. Når et kort er markeret som allerede
+          booket, kan du forsøge at overtage bookingen.
         </p>
       </header>
 
-      {loading && <p>Henter ledige tider...</p>}
+      {loading && <p>Henter lokaler og tider...</p>}
       {error && <p className="mb-4 text-red-600">Fejl: {error}</p>}
 
       {!loading && !error && visibleFacilities.length === 0 && (
         <p className="text-gray-600">
-          Der blev ikke fundet ledige lokaler på denne dato.
+          Der blev ikke fundet nogle bookinger for denne dato.
         </p>
       )}
 
@@ -254,44 +258,40 @@ export default function TeacherSearchPage() {
 
               {facility.slots.length === 0 ? (
                 <p className="text-sm text-gray-500">
-                  Ingen ledige tider for dette lokale.
+                  Ingen bookinger for dette lokale denne dag.
                 </p>
               ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {facility.slots.map((slot) => {
-                    const start = new Date(slot.starts_at);
-                    const end = slot.ends_at
-                      ? new Date(slot.ends_at)
-                      : null;
+                    const { dateLabel, timeLabel } =
+                      formatBookingInterval(
+                        slot.starts_at,
+                        slot.ends_at ?? null
+                      );
 
-                    const dateLabel = start.toLocaleDateString("da-DK", {
-                      weekday: "short",
-                      day: "2-digit",
-                      month: "2-digit",
-                    });
-
-                    const timeLabel =
-                      start.toLocaleTimeString("da-DK", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }) +
-                      (end
-                        ? " - " +
-                          end.toLocaleTimeString("da-DK", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "");
+                    const isAvailable = slot.role === "available";
 
                     return (
-                      <BookingCard
-                        key={slot.booking_id}
-                        bookingId={slot.booking_id}
-                        roomName={facility.title}
-                        date={dateLabel}
-                        time={timeLabel}
-                        onBook={handleBookSlot}
-                      />
+                      <div key={slot.booking_id} className="space-y-1">
+                        {!isAvailable && (
+                          <p className="text-xs text-red-600">
+                            Allerede booket – klik for at overtage
+                            bookingen.
+                          </p>
+                        )}
+                        <BookingCard
+                          bookingId={slot.booking_id}
+                          roomName={facility.title}
+                          date={dateLabel}
+                          time={timeLabel}
+                          onBook={handleBookSlot}
+                          actionLabel={
+                            isAvailable
+                              ? "Book dette tidsrum"
+                              : "Overtag booking"
+                          }
+                        />
+                      </div>
                     );
                   })}
                 </div>
@@ -301,7 +301,6 @@ export default function TeacherSearchPage() {
         </div>
       )}
 
-      {/* Booking success / error modal */}
       <ConfirmationModal
         isOpen={bookingModal !== null}
         title={bookingModal?.title ?? ""}
