@@ -30,7 +30,7 @@ export default function BookingForm() {
   const startTimeOptions = generateStartTimeOptions();
   const endTimeOptions = generateEndTimeOptions();
 
-  // Accept both Date and string, because we’ve seen "2025-12-04" at runtime
+  // Accept both Date and string
   const [dateValue, setDateValue] = useState<Date | string | null>(null);
 
   // today's date as minimum selectable date
@@ -44,6 +44,8 @@ export default function BookingForm() {
 
     const start = String(formData.get("start") || "").trim();
     const end = String(formData.get("end") || "").trim();
+    const capacity = String(formData.get("capacity") || "").trim();
+    const sort = String(formData.get("sort") || "").trim();
 
     console.log("[BOOKING FORM] raw dateValue on submit:", dateValue);
 
@@ -116,6 +118,9 @@ export default function BookingForm() {
     const params = new URLSearchParams();
     if (start) params.set("start", start);
     if (end) params.set("end", end);
+    if (capacity) params.set("capacity", capacity);
+    if (sort) params.set("sort", sort);
+
     const qs = params.toString();
     if (qs) url += `?${qs}`;
 
@@ -139,7 +144,6 @@ export default function BookingForm() {
             OBS! Du kan kun booke et lokale i hverdage mellem 8-16.
           </small>
           <DatePickerInput
-            // Always give Mantine a Date | null, even if our state might have held a string
             value={
               dateValue instanceof Date
                 ? dateValue
@@ -149,7 +153,6 @@ export default function BookingForm() {
             }
             onChange={(value) => {
               console.log("[BOOKING FORM] onChange value:", value);
-              // Mantine gives Date | null here
               setDateValue(value ?? null);
             }}
             placeholder="Vælg dato"
@@ -209,13 +212,14 @@ export default function BookingForm() {
           </label>
         </div>
 
-        {/* Kapacitet (still just visual for now) */}
+        {/* Kapacitet */}
         <div className="space-y-2">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-gray-700">
               Kapacitet
             </span>
             <select
+              name="capacity"
               defaultValue=""
               className="block w-full max-w-xs rounded-md border border-gray-200 px-3 py-2 text-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
@@ -224,6 +228,23 @@ export default function BookingForm() {
               <option value="2-4">2-4</option>
               <option value="4-8">4-8</option>
               <option value="8+">8+</option>
+            </select>
+          </label>
+        </div>
+
+        {/* Sortering */}
+        <div className="space-y-2">
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-gray-700">
+              Sortering
+            </span>
+            <select
+              name="sort"
+              defaultValue="time"
+              className="block w-full max-w-xs rounded-md border border-gray-200 px-3 py-2 text-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="time">Sorter efter tidspunkt</option>
+              <option value="capacity">Sorter efter kapacitet</option>
             </select>
           </label>
         </div>
