@@ -35,8 +35,7 @@ export default function CreateAccountForm() {
 			const { data, error } = await supabase.auth.signUp({
 				email,
 				password,
-				options: { data: { full_name: fullName } },
-			} as any);
+				options: { data: { full_name: fullName }, emailRedirectTo: `${window.location.origin}/login`} as any,});
 
 			if (error) throw error;
 
