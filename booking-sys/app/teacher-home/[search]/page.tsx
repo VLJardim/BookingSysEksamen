@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import BookingCard from "@/src/components/bookingCard";
 import getBrowserSupabase from "@/src/lib/supabase";
 import ConfirmationModal from "@/src/components/confirmationModal";
-import { formatBookingInterval, formatSearchDateLabel } from "@/src/utils/time";
+import { formatBookingInterval } from "@/src/utils/time";
 
 type RouteParams = { search: string };
 
@@ -41,24 +41,50 @@ type BookingModalConfig = {
   cancelLabel?: string;
 };
 
-const parseFloor = (floor?: string | null) => {
-  if (!floor) return 999;
-  const n = parseInt(floor, 10);
-  return Number.isNaN(n) ? 999 : n;
-};
+function sortFacilitiesByFloorThenTitle(facilities: Facility[]): Facility[] {
+  return [...facilities].sort((a, b) => {
+    const fa = parseInt(a.floor || "999", 10);
+    const fb = parseInt(b.floor || "999", 10);
+    if (!Number.isNaN(fa) && !Number.isNaN(fb) && fa !== fb) {
+      return fa - fb;
+    }
+    return a.title.localeCompare(b.title, "da-DK", { numeric: true });
+  });
+}
 
-const isTeacherOnlyFacility = (f: Facility) => {
-  const desc = (f.description || "").toLowerCase();
-  const type = (f.facility_type || "").toLowerCase();
+function flattenAndSortSlots(facilities: Facility[]) {
+  const items: {
+    facilityTitle: string;
+    floor: string | null | undefined;
+    slot: Slot;
+  }[] = [];
 
-  const isTeacherOnlyDesc =
-    desc.includes("kun lærere") || desc.includes("kun laerere");
+  for (const fac of facilities) {
+    for (const slot of fac.slots) {
+      items.push({
+        facilityTitle: fac.title,
+        floor: fac.floor,
+        slot,
+      });
+    }
+  }
 
-  const isTeacherOnlyType =
-    type === "open learning" || type === "undervisning";
+  return items.sort((a, b) => {
+    const fa = parseInt(a.floor || "999", 10);
+    const fb = parseInt(b.floor || "999", 10);
 
-  return isTeacherOnlyDesc || isTeacherOnlyType;
-};
+    if (!Number.isNaN(fa) && !Number.isNaN(fb) && fa !== fb) {
+      return fa - fb;
+    }
+
+    const titleCmp = a.facilityTitle.localeCompare(b.facilityTitle, "da-DK", {
+      numeric: true,
+    });
+    if (titleCmp !== 0) return titleCmp;
+
+    return a.slot.starts_at.localeCompare(b.slot.starts_at);
+  });
+}
 
 export default function TeacherSearchPage() {
   const params = useParams<RouteParams>();
@@ -72,7 +98,6 @@ export default function TeacherSearchPage() {
   const [bookingModal, setBookingModal] =
     useState<BookingModalConfig | null>(null);
 
-  // Hent alle slots (både ledige og bookede) for lærere
   useEffect(() => {
     if (!searchDate) return;
 
@@ -106,19 +131,77 @@ export default function TeacherSearchPage() {
     fetchData();
   }, [searchDate]);
 
-  const { sharedFacilities, teacherOnlyFacilities } = useMemo(() => {
-    const shared = facilities
-      .filter((f) => !isTeacherOnlyFacility(f))
-      .sort((a, b) => parseFloor(a.floor) - parseFloor(b.floor));
+  // Pæn dato i header
+  const prettySearchDate = useMemo(() => {
+    if (!searchDate) return "";
+    const d = new Date(searchDate + "T00:00:00");
+    if (Number.isNaN(d.getTime())) return searchDate;
 
-    const teacherOnly = facilities
-      .filter((f) => isTeacherOnlyFacility(f))
-      .sort((a, b) => parseFloor(a.floor) - parseFloor(b.floor));
+    let formatted = d.toLocaleDateString("da-DK", {
+      day: "numeric",
+      month: "long",
+    });
 
-    return { sharedFacilities: shared, teacherOnlyFacilities: teacherOnly };
+    formatted = formatted.replace(
+      /(\d+\.\s*)([a-zæøå])/,
+      (match, prefix, firstLetter) => prefix + firstLetter.toUpperCase()
+    );
+
+    return formatted;
+  }, [searchDate]);
+
+  // Del lokaler op i tre sektioner
+  const {
+    sharedFacilities,
+    teachingFacilities,
+    openLearningFacilities,
+  } = useMemo(() => {
+    const shared: Facility[] = [];
+    const teaching: Facility[] = [];
+    const openLearning: Facility[] = [];
+
+    for (const fac of facilities) {
+      const desc = (fac.description || "").toLowerCase();
+      const type = (fac.facility_type || "").toLowerCase();
+
+      const isTeacherOnlyDesc =
+        desc.includes("kun lærere") || desc.includes("kun laerere");
+      const isTeaching = type === "undervisning";
+      const isOpenLearning = type === "open learning";
+
+      if (!isTeacherOnlyDesc && !isTeaching && !isOpenLearning) {
+        shared.push(fac);
+      } else if (isTeaching) {
+        teaching.push(fac);
+      } else if (isOpenLearning) {
+        openLearning.push(fac);
+      } else {
+        // evt. andre lærer-lokaler → behandles som undervisning
+        teaching.push(fac);
+      }
+    }
+
+    return {
+      sharedFacilities: sortFacilitiesByFloorThenTitle(shared),
+      teachingFacilities: sortFacilitiesByFloorThenTitle(teaching),
+      openLearningFacilities: sortFacilitiesByFloorThenTitle(openLearning),
+    };
   }, [facilities]);
 
-  // Book / override slot direkte via Supabase
+  const sharedSlots = useMemo(
+    () => flattenAndSortSlots(sharedFacilities),
+    [sharedFacilities]
+  );
+  const teachingSlots = useMemo(
+    () => flattenAndSortSlots(teachingFacilities),
+    [teachingFacilities]
+  );
+  const openLearningSlots = useMemo(
+    () => flattenAndSortSlots(openLearningFacilities),
+    [openLearningFacilities]
+  );
+
+  // Book / override slot
   const handleBookSlot = async (bookingId: string) => {
     try {
       const supabase = getBrowserSupabase();
@@ -139,7 +222,6 @@ export default function TeacherSearchPage() {
         return;
       }
 
-      // 🔹 Hent nuværende booking
       const {
         data: existingData,
         error: fetchError,
@@ -163,7 +245,6 @@ export default function TeacherSearchPage() {
         return;
       }
 
-      // 🔹 Forsøg at sætte role = not_available og owner = lærerens id
       const {
         data: updatedData,
         error: updateError,
@@ -212,7 +293,6 @@ export default function TeacherSearchPage() {
         return;
       }
 
-      // Succes – fjern slot fra UI
       setFacilities((prev) =>
         prev.map((facility) => ({
           ...facility,
@@ -243,73 +323,45 @@ export default function TeacherSearchPage() {
     }
   };
 
-  const headerDate = formatSearchDateLabel(searchDate);
-
-  const renderFacilityGroup = (
-    title: string,
-    list: Facility[]
-  ) => {
-    if (list.length === 0) return null;
+  const renderSlotGrid = (slots: ReturnType<typeof flattenAndSortSlots>) => {
+    if (slots.length === 0) {
+      return (
+        <p className="text-sm text-gray-500">
+          Ingen bookinger for denne kategori på denne dag.
+        </p>
+      );
+    }
 
     return (
-      <section className="mb-10">
-        <h2 className="mb-3 text-lg font-semibold">{title}</h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {slots.map((item) => {
+          const { timeLabel } = formatBookingInterval(
+            item.slot.starts_at,
+            item.slot.ends_at ?? null
+          );
 
-        <div className="space-y-8">
-          {list.map((facility) => (
-            <section key={facility.facility_id}>
-              <h3 className="mb-1 text-xl font-semibold">
-                {facility.title}
-              </h3>
+          const isAvailable = item.slot.role === "available";
 
-              {facility.description && (
-                <p className="mb-1 text-gray-600">
-                  {facility.description}
-                </p>
-              )}
-
-              {facility.slots.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  Ingen bookinger for dette lokale denne dag.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {facility.slots.map((slot) => {
-                    const { dateLabel, timeLabel } =
-                      formatBookingInterval(
-                        slot.starts_at,
-                        slot.ends_at ?? null
-                      );
-
-                    const isAvailable = slot.role === "available";
-
-                    return (
-                      <BookingCard
-                        key={slot.booking_id}
-                        bookingId={slot.booking_id}
-                        roomName={facility.title}
-                        date={dateLabel}
-                        time={timeLabel}
-                        onBook={handleBookSlot}
-                        actionLabel={
-                          isAvailable
-                            ? "Book dette tidsrum"
-                            : "Overtag booking"
-                        }
-                        notice={
-                          !isAvailable
-                            ? "Allerede booket – klik for at overtage bookingen."
-                            : undefined
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-          ))}
-        </div>
-      </section>
+          return (
+            <BookingCard
+              key={item.slot.booking_id}
+              bookingId={item.slot.booking_id}
+              roomName={item.facilityTitle}
+              date={searchDate}
+              time={timeLabel}
+              onBook={handleBookSlot}
+              actionLabel={
+                isAvailable ? "Book dette tidsrum" : "Overtag booking"
+              }
+              notice={
+                isAvailable
+                  ? undefined
+                  : "Allerede booket – klik for at overtage bookingen."
+              }
+            />
+          );
+        })}
+      </div>
     );
   };
 
@@ -317,15 +369,10 @@ export default function TeacherSearchPage() {
     <main className="min-h-screen bg-gray-50 p-8">
       <header className="mb-8">
         <h1 className="mb-2 text-2xl font-bold">
-          Lokaler og bookinger
+          Lokaler og bookinger (Lærer)
         </h1>
         <p className="text-gray-600">
-          Dato:{" "}
-          <span className="font-medium">{headerDate}</span>
-        </p>
-        <p className="mt-1 text-sm text-gray-500">
-          Blå knapper = ledige tider. Når et kort er markeret som
-          allerede booket, kan du forsøge at overtage bookingen.
+          Dato: <span className="font-medium">{prettySearchDate}</span>
         </p>
       </header>
 
@@ -340,11 +387,32 @@ export default function TeacherSearchPage() {
 
       {!loading && !error && facilities.length > 0 && (
         <div className="space-y-10">
-          {renderFacilityGroup(
-            "Til studerende og lærere",
-            sharedFacilities
+          {sharedSlots.length > 0 && (
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold">
+                Til studerende og lærere
+              </h2>
+              {renderSlotGrid(sharedSlots)}
+            </section>
           )}
-          {renderFacilityGroup("Kun lærere", teacherOnlyFacilities)}
+
+          {teachingSlots.length > 0 && (
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold">
+                Kun lærere – undervisningslokaler
+              </h2>
+              {renderSlotGrid(teachingSlots)}
+            </section>
+          )}
+
+          {openLearningSlots.length > 0 && (
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold">
+                Kun lærere – Open Learning
+              </h2>
+              {renderSlotGrid(openLearningSlots)}
+            </section>
+          )}
         </div>
       )}
 
