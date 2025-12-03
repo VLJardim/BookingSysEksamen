@@ -42,10 +42,18 @@ export default function BookingForm() {
     const form = e.currentTarget;
     const formData = new FormData(form);
 
-    const start = String(formData.get("start") || "").trim();
-    const end = String(formData.get("end") || "").trim();
+    const start = String(formData.get("start") || "").trim();     // "08:00"
+    const end = String(formData.get("end") || "").trim();         // "12:00"
+    const capacity = String(formData.get("capacity") || "").trim(); // "2-4" etc.
 
     console.log("[BOOKING FORM] raw dateValue on submit:", dateValue);
+    console.log("[BOOKING FORM] filters:", { start, end, capacity });
+
+    // 🔹 Validate time range: end must be later than start when both are chosen
+    if (start && end && end <= start) {
+      alert("Sluttidspunkt skal være senere end starttidspunkt.");
+      return;
+    }
 
     if (!dateValue) {
       alert("Vælg venligst en dato.");
@@ -116,6 +124,8 @@ export default function BookingForm() {
     const params = new URLSearchParams();
     if (start) params.set("start", start);
     if (end) params.set("end", end);
+    if (capacity) params.set("capacity", capacity);
+
     const qs = params.toString();
     if (qs) url += `?${qs}`;
 
@@ -139,7 +149,6 @@ export default function BookingForm() {
             OBS! Du kan kun booke et lokale i hverdage mellem 8-16.
           </small>
           <DatePickerInput
-            // Always give Mantine a Date | null, even if our state might have held a string
             value={
               dateValue instanceof Date
                 ? dateValue
@@ -149,7 +158,6 @@ export default function BookingForm() {
             }
             onChange={(value) => {
               console.log("[BOOKING FORM] onChange value:", value);
-              // Mantine gives Date | null here
               setDateValue(value ?? null);
             }}
             placeholder="Vælg dato"
@@ -209,13 +217,14 @@ export default function BookingForm() {
           </label>
         </div>
 
-        {/* Kapacitet (still just visual for now) */}
+        {/* Kapacitet – nu med name="capacity" så den kommer med i URL */}
         <div className="space-y-2">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-gray-700">
               Kapacitet
             </span>
             <select
+              name="capacity"
               defaultValue=""
               className="block w-full max-w-xs rounded-md border border-gray-200 px-3 py-2 text-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
