@@ -214,7 +214,7 @@ export default function TeacherSearchPage() {
           message:
             "Du skal være logget ind for at booke et lokale. Log ind og prøv igen.",
           confirmLabel: "OK",
-          cancelLabel: "Luk",
+          cancelLabel: "Annullér",
         });
         return;
       }
@@ -285,7 +285,7 @@ export default function TeacherSearchPage() {
           title: "Kunne ikke booke",
           message: userMessage,
           confirmLabel: "OK",
-          cancelLabel: "Luk",
+          cancelLabel: "Annullér",
         });
         return;
       }
@@ -307,7 +307,7 @@ export default function TeacherSearchPage() {
           ? "Dit lokale er nu booket."
           : "Du har nu overtaget denne booking.",
         confirmLabel: "OK",
-        cancelLabel: "Luk",
+        cancelLabel: "Annullér",
       });
     } catch (err) {
       console.error("Unexpected booking error", err);
@@ -315,7 +315,7 @@ export default function TeacherSearchPage() {
         title: "Kunne ikke booke",
         message: "Der opstod en uventet fejl. Prøv igen senere.",
         confirmLabel: "OK",
-        cancelLabel: "Luk",
+        cancelLabel: "Annullér",
       });
     }
   };

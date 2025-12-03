@@ -227,7 +227,7 @@ export default function SearchPage() {
           message:
             "Du skal være logget ind for at booke et lokale. Log ind og prøv igen.",
           confirmLabel: "OK",
-          cancelLabel: "Luk",
+          cancelLabel: "Annullér",
         });
         return;
       }
@@ -248,7 +248,7 @@ export default function SearchPage() {
           title: "Kunne ikke booke",
           message: "Tidsrummet er allerede booket af en anden.",
           confirmLabel: "OK",
-          cancelLabel: "Luk",
+          cancelLabel: "Annullér",
         });
         return;
       }
@@ -275,7 +275,7 @@ export default function SearchPage() {
           message:
             "Tidsrummet kunne ikke bookes. Det kan være, at en anden lige har taget det.",
           confirmLabel: "OK",
-          cancelLabel: "Luk",
+          cancelLabel: "Annullér",
         });
         return;
       }
@@ -294,7 +294,7 @@ export default function SearchPage() {
         message:
           "Dit lokale er nu booket. Du kan se det under 'Mine bookinger'.",
         confirmLabel: "OK",
-        cancelLabel: "Luk",
+        cancelLabel: "Annullér",
       });
     } catch (err) {
       console.error("Unexpected booking error", err);
@@ -302,7 +302,7 @@ export default function SearchPage() {
         title: "Kunne ikke booke",
         message: "Der opstod en uventet fejl. Prøv igen senere.",
         confirmLabel: "OK",
-        cancelLabel: "Luk",
+        cancelLabel: "Annullér",
       });
     }
   };

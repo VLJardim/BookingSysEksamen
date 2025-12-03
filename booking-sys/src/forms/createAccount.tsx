@@ -14,18 +14,27 @@ export default function CreateAccountForm() {
 	const [message, setMessage] = useState("");
 	const router = useRouter();
 
+	// Password validation checks
+	const hasMinLength = password.length >= 8 && password.length <= 16;
+	const hasUpperCase = /[A-Z]/.test(password);
+	const hasLowerCase = /[a-z]/.test(password);
+	const hasNumber = /[0-9]/.test(password);
+	const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+
+	const isPasswordValid = hasMinLength && hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar;
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError("");
 		setMessage("");
 
-		if (password.length < 6) {
-			setError("Password must be at least 6 characters");
+		if (!isPasswordValid) {
+			setError("Adgangskoden opfylder ikke alle krav");
 			return;
 		}
 
 		if (password !== confirm) {
-			setError("Passwords do not match");
+			setError("Adgangskoderne matcher ikke");
 			return;
 		}
 
@@ -127,6 +136,57 @@ export default function CreateAccountForm() {
 					/>
 				</label>
 			</div>
+
+			{/* Password requirements */}
+			{password && (
+				<div className="space-y-2 bg-gray-50 p-4 rounded-md">
+					<p className="text-sm font-medium text-gray-700 mb-2">Adgangskode skal:</p>
+					
+					<div className={`flex items-center gap-2 text-sm ${hasMinLength ? 'text-green-600' : 'text-gray-500'}`}>
+						<svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+							{hasMinLength ? (
+								<path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+							) : (
+								<circle cx="10" cy="10" r="2" />
+							)}
+						</svg>
+						<span>Være mellem 8 og 16 tegn</span>
+					</div>
+					
+					<div className={`flex items-center gap-2 text-sm ${hasUpperCase && hasLowerCase ? 'text-green-600' : 'text-gray-500'}`}>
+						<svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+							{hasUpperCase && hasLowerCase ? (
+								<path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+							) : (
+								<circle cx="10" cy="10" r="2" />
+							)}
+						</svg>
+						<span>Indeholde både store og små bogstaver</span>
+					</div>
+					
+					<div className={`flex items-center gap-2 text-sm ${hasNumber ? 'text-green-600' : 'text-gray-500'}`}>
+						<svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+							{hasNumber ? (
+								<path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+							) : (
+								<circle cx="10" cy="10" r="2" />
+							)}
+						</svg>
+						<span>Indeholde mindst ét tal</span>
+					</div>
+					
+					<div className={`flex items-center gap-2 text-sm ${hasSpecialChar ? 'text-green-600' : 'text-gray-500'}`}>
+						<svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+							{hasSpecialChar ? (
+								<path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+							) : (
+								<circle cx="10" cy="10" r="2" />
+							)}
+						</svg>
+						<span>Indeholde mindst ét specialtegn (f.eks. !@#$%&*)</span>
+					</div>
+				</div>
+			)}
 
 			<button
 				type="submit"
