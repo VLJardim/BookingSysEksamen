@@ -65,7 +65,7 @@ export default function ResetPasswordForm() {
 			<button
 				type="submit"
 				disabled={loading}
-				className="w-full bg-[#1864AB] text-white py-2 px-4 rounded-md hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+				className="w-full bg-[#1864AB] text-white py-2 px-4 rounded-full hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed font-medium"
 			>
 				{loading ? "Sender..." : "Send nulstillingsmail"}
 			</button>

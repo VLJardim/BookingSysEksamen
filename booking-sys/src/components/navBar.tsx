@@ -51,7 +51,7 @@ export default function NavBar({ showLinks = true }: NavBarProps) {
 
           <button 
             onClick={() => router.push('/profile')}
-            className="flex items-center gap-3 bg-white rounded-lg p-4 hover:bg-gray-50 transition-colors w-full text-left"
+            className="flex items-center gap-3 bg-white rounded-lg p-4 hover:bg-gray-50 transition-colors w-full text-left cursor-pointer"
           >
             <IconUser size={24} className="text-green-600" />
             <div className="flex flex-col">

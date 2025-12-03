@@ -175,10 +175,10 @@ export default function BookingForm() {
               Kapacitet
             </span>
             <select
-              defaultValue="4-8"
+              defaultValue=""
               className="block w-full max-w-xs px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-500"
             >
-              <option value="" disabled>
+              <option value="">
                 Vælg kapacitet
               </option>
               <option value="1">1</option>
@@ -191,7 +191,7 @@ export default function BookingForm() {
 
         <button
           type="submit"
-          className="max-w-xs bg-[#1864AB] text-white py-3 px-8 rounded-full hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
+          className="max-w-xs bg-[#1864AB] text-white py-2 px-4 rounded-full hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors font-medium"
         >
           Søg
         </button>

@@ -33,11 +33,16 @@ export default function BookingCard({
     if (isoDatePattern.test(date)) {
       const d = new Date(date + "T00:00:00");
       if (!Number.isNaN(d.getTime())) {
-        return d.toLocaleDateString("da-DK", {
+        let formatted = d.toLocaleDateString("da-DK", {
           day: "numeric",
-          month: "long",      // "december" i stedet for "12"
+          month: "long",      // "December" i stedet for "12"
           // ingen year → bliver automatisk uden årstal
         });
+        // Capitalize month name (after "day. ")
+        formatted = formatted.replace(/(\d+\.\s*)([a-z])/, (match, prefix, firstLetter) => 
+          prefix + firstLetter.toUpperCase()
+        );
+        return formatted;
       }
     }
 
@@ -69,7 +74,7 @@ export default function BookingCard({
       <button
         type="button"
         onClick={handleClick}
-        className="mt-4 w-full rounded-md bg-[#1864AB] px-3 py-2 text-sm font-medium text-white hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="mt-4 w-full rounded-full bg-[#1864AB] px-4 py-2 text-sm font-medium text-white hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
       >
         {label}
       </button>

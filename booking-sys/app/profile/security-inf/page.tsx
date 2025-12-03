@@ -71,7 +71,7 @@ export default function SecurityInfoPage() {
                   <div className="flex gap-3">
                     <button
                       onClick={handleAddMethod}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                      className="px-4 py-2 bg-[#1864AB] text-white rounded-full hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors font-medium"
                     >
                       Tilføj
                     </button>
@@ -80,7 +80,7 @@ export default function SecurityInfoPage() {
                         setIsEditing(false);
                         setSelectedMethod('');
                       }}
-                      className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+                      className="px-4 py-2 bg-gray-600 text-white rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors font-medium"
                     >
                       Annuller
                     </button>
