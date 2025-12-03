@@ -4,6 +4,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import getBrowserSupabase from "@/src/lib/supabase";
+import { DatePickerInput } from "@mantine/dates";
 
 // Generate time options in hourly intervals
 const generateTimeOptions = () => {
@@ -20,39 +21,11 @@ export default function BookingForm() {
   const timeOptions = generateTimeOptions();
 
   // kontrolleret værdi til dato-feltet
-  const [date, setDate] = useState("");
+  const [dateValue, setDateValue] = useState<Date | null>(null);
 
-  // dagens dato til "min"-attributten
-  const todayStr = new Date().toISOString().slice(0, 10);
-
-  // blokér lørdag/søndag i date-picker
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-
-    if (!value) {
-      setDate("");
-      e.target.setCustomValidity("");
-      return;
-    }
-
-    const selected = new Date(value + "T00:00:00");
-    const day = selected.getDay(); // 0 = søndag, 6 = lørdag
-
-    if (day === 0 || day === 6) {
-      // weekend -> ikke tilladt
-      setDate("");
-      e.target.value = "";
-      e.target.setCustomValidity(
-        "Du kan kun booke lokaler mandag til fredag."
-      );
-      e.target.reportValidity();
-      return;
-    }
-
-    // hverdag -> ok
-    e.target.setCustomValidity("");
-    setDate(value);
-  };
+  // dagens dato til minimum
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -62,7 +35,20 @@ export default function BookingForm() {
     const start = String(formData.get("start") || "").trim();
     const end = String(formData.get("end") || "").trim();
 
-    if (!date) return; // dato er påkrævet og skal være hverdag
+    if (!dateValue) return; // dato er påkrævet og skal være hverdag
+
+    // Check if selected date is a weekend
+    const selectedDay = dateValue.getDay();
+    if (selectedDay === 0 || selectedDay === 6) {
+      alert("Du kan kun booke lokaler mandag til fredag.");
+      return;
+    }
+
+    // Convert date to YYYY-MM-DD format
+    const year = dateValue.getFullYear();
+    const month = String(dateValue.getMonth() + 1).padStart(2, "0");
+    const day = String(dateValue.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
 
     // 🔹 Find brugerens email for at afgøre om det er lærer eller elev
     const supabase = getBrowserSupabase();
@@ -80,7 +66,7 @@ export default function BookingForm() {
       basePath = "/student-home";
     }
 
-    let url = `${basePath}/${encodeURIComponent(date)}`;
+    let url = `${basePath}/${encodeURIComponent(dateStr)}`;
 
     const params = new URLSearchParams();
     if (start) params.set("start", start);
@@ -105,24 +91,22 @@ export default function BookingForm() {
           <small className="block text-xs text-gray-500 mb-2">
             OBS! Du kan kun booke et lokale i hverdage mellem 8-16.
           </small>
-          <div
-            className="cursor-pointer"
-            onClick={(e) => {
-              const input = e.currentTarget.querySelector("input");
-              // åbner browserens date-picker
-              (input as HTMLInputElement | null)?.showPicker?.();
+          <DatePickerInput
+            value={dateValue}
+            onChange={setDateValue}
+            placeholder="Vælg dato"
+            minDate={today}
+            valueFormat="DD/MM/YYYY"
+            required
+            classNames={{
+              input: "max-w-md px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-500"
             }}
-          >
-            <input
-              name="date"
-              type="date"
-              required
-              min={todayStr}
-              value={date}
-              onChange={handleDateChange}
-              className="block w-full max-w-md px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer text-gray-500"
-            />
-          </div>
+            styles={{
+              dropdown: {
+                width: "max-content"
+              }
+            }}
+          />
         </div>
 
         <div className="space-y-2">
