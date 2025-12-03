@@ -1,11 +1,12 @@
+// src/app/teacher-home/[search]/page.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import BookingCard from "@/src/components/bookingCard";
 import getBrowserSupabase from "@/src/lib/supabase";
 import ConfirmationModal from "@/src/components/confirmationModal";
-import { formatBookingInterval } from "@/src/utils/time";
+import { formatBookingInterval, formatSearchDateLabel } from "@/src/utils/time";
 
 type RouteParams = { search: string };
 
@@ -29,6 +30,7 @@ type Facility = {
   capacity?: string | null;
   description?: string | null;
   facility_type?: string | null;
+  floor?: string | null;
   slots: Slot[];
 };
 
@@ -37,6 +39,25 @@ type BookingModalConfig = {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
+};
+
+const parseFloor = (floor?: string | null) => {
+  if (!floor) return 999;
+  const n = parseInt(floor, 10);
+  return Number.isNaN(n) ? 999 : n;
+};
+
+const isTeacherOnlyFacility = (f: Facility) => {
+  const desc = (f.description || "").toLowerCase();
+  const type = (f.facility_type || "").toLowerCase();
+
+  const isTeacherOnlyDesc =
+    desc.includes("kun lærere") || desc.includes("kun laerere");
+
+  const isTeacherOnlyType =
+    type === "open learning" || type === "undervisning";
+
+  return isTeacherOnlyDesc || isTeacherOnlyType;
 };
 
 export default function TeacherSearchPage() {
@@ -85,7 +106,17 @@ export default function TeacherSearchPage() {
     fetchData();
   }, [searchDate]);
 
-  const visibleFacilities = facilities;
+  const { sharedFacilities, teacherOnlyFacilities } = useMemo(() => {
+    const shared = facilities
+      .filter((f) => !isTeacherOnlyFacility(f))
+      .sort((a, b) => parseFloor(a.floor) - parseFloor(b.floor));
+
+    const teacherOnly = facilities
+      .filter((f) => isTeacherOnlyFacility(f))
+      .sort((a, b) => parseFloor(a.floor) - parseFloor(b.floor));
+
+    return { sharedFacilities: shared, teacherOnlyFacilities: teacherOnly };
+  }, [facilities]);
 
   // Book / override slot direkte via Supabase
   const handleBookSlot = async (bookingId: string) => {
@@ -108,7 +139,7 @@ export default function TeacherSearchPage() {
         return;
       }
 
-      // 🔹 Hent nuværende booking (cast supabase → any for TS)
+      // 🔹 Hent nuværende booking
       const {
         data: existingData,
         error: fetchError,
@@ -212,47 +243,28 @@ export default function TeacherSearchPage() {
     }
   };
 
-  return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      <header className="mb-8">
-        <h1 className="mb-2 text-2xl font-bold">
-          Lokaler og bookinger (Lærer)
-        </h1>
-        <p className="text-gray-600">
-          Dato: <span className="font-medium">{searchDate}</span>
-        </p>
-        <p className="mt-1 text-sm text-gray-500">
-          Blå knapper = ledige tider. Når et kort er markeret som allerede
-          booket, kan du forsøge at overtage bookingen.
-        </p>
-      </header>
+  const headerDate = formatSearchDateLabel(searchDate);
 
-      {loading && <p>Henter lokaler og tider...</p>}
-      {error && <p className="mb-4 text-red-600">Fejl: {error}</p>}
+  const renderFacilityGroup = (
+    title: string,
+    list: Facility[]
+  ) => {
+    if (list.length === 0) return null;
 
-      {!loading && !error && visibleFacilities.length === 0 && (
-        <p className="text-gray-600">
-          Der blev ikke fundet nogle bookinger for denne dato.
-        </p>
-      )}
+    return (
+      <section className="mb-10">
+        <h2 className="mb-3 text-lg font-semibold">{title}</h2>
 
-      {!loading && !error && visibleFacilities.length > 0 && (
-        <div className="space-y-10">
-          {visibleFacilities.map((facility) => (
+        <div className="space-y-8">
+          {list.map((facility) => (
             <section key={facility.facility_id}>
-              <h2 className="mb-1 text-xl font-semibold">
+              <h3 className="mb-1 text-xl font-semibold">
                 {facility.title}
-              </h2>
+              </h3>
 
               {facility.description && (
                 <p className="mb-1 text-gray-600">
                   {facility.description}
-                </p>
-              )}
-
-              {facility.capacity && (
-                <p className="mb-4 text-sm text-gray-500">
-                  Kapacitet: {facility.capacity}
                 </p>
               )}
 
@@ -272,32 +284,67 @@ export default function TeacherSearchPage() {
                     const isAvailable = slot.role === "available";
 
                     return (
-                      <div key={slot.booking_id} className="space-y-1">
-                        {!isAvailable && (
-                          <p className="text-xs text-red-600">
-                            Allerede booket – klik for at overtage
-                            bookingen.
-                          </p>
-                        )}
-                        <BookingCard
-                          bookingId={slot.booking_id}
-                          roomName={facility.title}
-                          date={dateLabel}
-                          time={timeLabel}
-                          onBook={handleBookSlot}
-                          actionLabel={
-                            isAvailable
-                              ? "Book dette tidsrum"
-                              : "Overtag booking"
-                          }
-                        />
-                      </div>
+                      <BookingCard
+                        key={slot.booking_id}
+                        bookingId={slot.booking_id}
+                        roomName={facility.title}
+                        date={dateLabel}
+                        time={timeLabel}
+                        onBook={handleBookSlot}
+                        actionLabel={
+                          isAvailable
+                            ? "Book dette tidsrum"
+                            : "Overtag booking"
+                        }
+                        notice={
+                          !isAvailable
+                            ? "Allerede booket – klik for at overtage bookingen."
+                            : undefined
+                        }
+                      />
                     );
                   })}
                 </div>
               )}
             </section>
           ))}
+        </div>
+      </section>
+    );
+  };
+
+  return (
+    <main className="min-h-screen bg-gray-50 p-8">
+      <header className="mb-8">
+        <h1 className="mb-2 text-2xl font-bold">
+          Lokaler og bookinger
+        </h1>
+        <p className="text-gray-600">
+          Dato:{" "}
+          <span className="font-medium">{headerDate}</span>
+        </p>
+        <p className="mt-1 text-sm text-gray-500">
+          Blå knapper = ledige tider. Når et kort er markeret som
+          allerede booket, kan du forsøge at overtage bookingen.
+        </p>
+      </header>
+
+      {loading && <p>Henter lokaler og tider...</p>}
+      {error && <p className="mb-4 text-red-600">Fejl: {error}</p>}
+
+      {!loading && !error && facilities.length === 0 && (
+        <p className="text-gray-600">
+          Der blev ikke fundet nogle bookinger for denne dato.
+        </p>
+      )}
+
+      {!loading && !error && facilities.length > 0 && (
+        <div className="space-y-10">
+          {renderFacilityGroup(
+            "Til studerende og lærere",
+            sharedFacilities
+          )}
+          {renderFacilityGroup("Kun lærere", teacherOnlyFacilities)}
         </div>
       )}
 

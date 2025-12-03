@@ -1,39 +1,52 @@
 // src/utils/time.ts
 
-// Helper: format a stored ISO timestamp *without* applying timezone shifts.
-// We treat the "HH:MM" part as the real school time.
+// Hjælper til at lave "December - 4" til headeren (datoen du har søgt på)
+export function formatSearchDateLabel(dateStr: string | null | undefined) {
+  if (!dateStr) return "";
+
+  // Forventet format: "YYYY-MM-DD"
+  const [yearStr, monthStr, dayStr] = dateStr.split("-");
+  const year = Number(yearStr);
+  const monthIndex = Number(monthStr) - 1;
+  const day = Number(dayStr);
+
+  const d = new Date(year, monthIndex, day);
+
+  let monthName = d.toLocaleDateString("da-DK", { month: "long" }); // "december"
+  monthName = monthName.charAt(0).toUpperCase() + monthName.slice(1); // "December"
+
+  const dayLabel = day.toString(); // "4"
+
+  return `${monthName} - ${dayLabel}`;
+}
+
+// Formatter der behandler den lagrede tid som "skole-tid" uden timezone-shift.
+// Forventer noget a la: "2025-12-04T10:00:00+00:00"
 export function formatBookingInterval(
   startsAt: string,
   endsAt?: string | null
 ) {
-  // Example startsAt: "2025-12-04T10:00:00+00:00"
-
-  const [startDatePart, startTimePartRaw] = startsAt.split("T");
-  const [yearStr, monthStr, dayStr] = startDatePart.split("-");
+  const [datePart] = startsAt.split("T");
+  const [yearStr, monthStr, dayStr] = datePart.split("-");
 
   const year = Number(yearStr);
-  const monthIndex = Number(monthStr) - 1; // JS months are 0-based
+  const monthIndex = Number(monthStr) - 1;
   const day = Number(dayStr);
 
-  // Build a local Date just for pretty-printing the *date*,
-  // but we ignore the time here so timezone doesn't matter.
-  const dateObj = new Date(year, monthIndex, day);
+  const d = new Date(year, monthIndex, day);
 
-  const dateLabel = dateObj.toLocaleDateString("da-DK", {
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-  });
+  let monthName = d.toLocaleDateString("da-DK", { month: "long" }); // "december"
+  monthName = monthName.charAt(0).toUpperCase() + monthName.slice(1); // "December"
 
-  // Extract naive HH:MM from the raw time part
-  const formatTime = (iso: string) => {
+  const dateLabel = `${day}. ${monthName}`; // "4. December"
+
+  const extractHHMM = (iso: string) => {
     const timePart = iso.split("T")[1] ?? ""; // "10:00:00+00:00"
-    const hhmm = timePart.slice(0, 5);        // "10:00"
-    return hhmm;
+    return timePart.slice(0, 5); // "10:00"
   };
 
-  const startTime = formatTime(startsAt);
-  const endTime = endsAt ? formatTime(endsAt) : "";
+  const startTime = extractHHMM(startsAt);
+  const endTime = endsAt ? extractHHMM(endsAt) : "";
 
   const timeLabel = endTime ? `${startTime} - ${endTime}` : startTime;
 

@@ -45,7 +45,8 @@ export async function GET(req: Request) {
         title,
         capacity,
         description,
-        facility_type
+        facility_type,
+        floor
       )
     `
     )
@@ -53,7 +54,7 @@ export async function GET(req: Request) {
     .lt("starts_at", endISO)
     .order("starts_at", { ascending: true });
 
-  // 🔹 All non-teacher usage (student or anonymous) → ONLY available slots
+  // 🔹 Studerende (og evt anonyme) ser kun ledige slots
   if (mode !== "teacher") {
     query = query.eq("role", "available");
   }
@@ -84,6 +85,7 @@ export async function GET(req: Request) {
     capacity?: string | null;
     description?: string | null;
     facility_type?: string | null;
+    floor?: string | null;
     slots: Slot[];
   };
 
@@ -101,6 +103,7 @@ export async function GET(req: Request) {
         capacity: fac.capacity,
         description: fac.description,
         facility_type: fac.facility_type,
+        floor: fac.floor,
         slots: [],
       };
       facilitiesMap.set(fac.facility_id, facility);

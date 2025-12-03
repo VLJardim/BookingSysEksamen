@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import BookingCard from "@/src/components/bookingCard";
 import getBrowserSupabase from "@/src/lib/supabase";
 import ConfirmationModal from "@/src/components/confirmationModal";
-import { formatBookingInterval } from "@/src/utils/time";
+import { formatBookingInterval, formatSearchDateLabel } from "@/src/utils/time";
 
 type RouteParams = { search: string };
 
@@ -28,6 +28,7 @@ type Facility = {
   capacity?: string | null;
   description?: string | null;
   facility_type?: string | null;
+  floor?: string | null;
   slots: Slot[];
 };
 
@@ -45,6 +46,12 @@ type BookingModalConfig = {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
+};
+
+const parseFloor = (floor?: string | null) => {
+  if (!floor) return 999;
+  const n = parseInt(floor, 10);
+  return Number.isNaN(n) ? 999 : n;
 };
 
 export default function SearchPage() {
@@ -84,7 +91,6 @@ export default function SearchPage() {
         .maybeSingle();
 
       if (error || !data) {
-        // Hvis der ikke findes en række i userlist, falder vi bare tilbage til student
         setRole("student");
         return;
       }
@@ -131,23 +137,30 @@ export default function SearchPage() {
     fetchData();
   }, [searchDate]);
 
-  // 3) Filtrer lærer-områder fra, hvis brugeren er student
+  // 3) Filtrer lærer-områder fra, hvis brugeren er student, og sorter efter etage
   const visibleFacilities = useMemo(() => {
-    if (role !== "student") return facilities;
+    let list = facilities;
 
-    return facilities.filter((f) => {
-      const desc = (f.description || "").toLowerCase();
-      const type = (f.facility_type || "").toLowerCase();
+    if (role === "student") {
+      list = facilities.filter((f) => {
+        const desc = (f.description || "").toLowerCase();
+        const type = (f.facility_type || "").toLowerCase();
 
-      const isTeacherOnlyDesc =
-        desc.includes("kun lærere") || desc.includes("kun laerere");
+        const isTeacherOnlyDesc =
+          desc.includes("kun lærere") || desc.includes("kun laerere");
 
-      const isTeacherOnlyType =
-        type === "open learning" || type === "undervisning";
+        const isTeacherOnlyType =
+          type === "open learning" || type === "undervisning";
 
-      if (isTeacherOnlyDesc || isTeacherOnlyType) return false;
-      return true;
-    });
+        if (isTeacherOnlyDesc || isTeacherOnlyType) return false;
+        return true;
+      });
+    }
+
+    const sorted = [...list].sort(
+      (a, b) => parseFloor(a.floor) - parseFloor(b.floor)
+    );
+    return sorted;
   }, [facilities, role]);
 
   // 4) Book slot direkte via Supabase
@@ -252,13 +265,18 @@ export default function SearchPage() {
     }
   };
 
+  const headerDate = formatSearchDateLabel(searchDate);
+
   return (
     <main className="min-h-screen bg-gray-50 p-8">
       <header className="mb-8">
-        <h1 className="mb-2 text-2xl font-bold">Find ledige lokaler</h1>
+        <h1 className="mb-2 text-2xl font-bold">Lokaler og bookinger</h1>
         <p className="text-gray-600">
-          Søgeresultat for:{" "}
-          <span className="font-medium">{searchDate}</span>
+          Dato:{" "}
+          <span className="font-medium">{headerDate}</span>
+        </p>
+        <p className="mt-1 text-sm text-gray-500">
+          Vælg et tidsrum nedenfor for at booke et lokale.
         </p>
       </header>
 
@@ -282,12 +300,6 @@ export default function SearchPage() {
               {facility.description && (
                 <p className="mb-1 text-gray-600">
                   {facility.description}
-                </p>
-              )}
-
-              {facility.capacity && (
-                <p className="mb-4 text-sm text-gray-500">
-                  Kapacitet: {facility.capacity}
                 </p>
               )}
 
@@ -322,7 +334,6 @@ export default function SearchPage() {
         </div>
       )}
 
-      {/* Booking success / error modal */}
       <ConfirmationModal
         isOpen={bookingModal !== null}
         title={bookingModal?.title ?? ""}
