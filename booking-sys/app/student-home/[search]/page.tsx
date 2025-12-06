@@ -6,6 +6,8 @@ import { useParams, useSearchParams } from "next/navigation";
 import BookingCard from "@/src/components/bookingCard";
 import getBrowserSupabase from "@/src/lib/supabase";
 import ConfirmationModal from "@/src/components/confirmationModal";
+import { bookSlot } from "@/src/lib/bookingApi";
+import { getErrorMessage } from "@/src/lib/errorMessages";
 
 type RouteParams = { search: string };
 
@@ -13,12 +15,6 @@ type Slot = {
   booking_id: string;
   starts_at: string;
   ends_at?: string | null;
-};
-
-type BookingRow = {
-  booking_id: string;
-  role: "available" | "not_available";
-  owner: string | null;
 };
 
 type Facility = {
@@ -45,9 +41,27 @@ type BookingModalConfig = {
   cancelLabel?: string;
 };
 
+// 🔹 Fælles helper: format "YYYY-MM-DD" → "4. December"
+function formatDateLabelDa(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return dateStr;
+
+  let formatted = d.toLocaleDateString("da-DK", {
+    day: "numeric",
+    month: "long",
+  });
+
+  formatted = formatted.replace(
+    /(\d+\.\s*)([a-zæøå])/,
+    (match, prefix, firstLetter) => prefix + firstLetter.toUpperCase()
+  );
+
+  return formatted;
+}
+
 // Vis tid præcis som i DB (ignorerer timezone)
 function formatTimeRange(startsAt: string, endsAt?: string | null) {
-  const startHM = startsAt.slice(11, 16);
+  const startHM = startsAt.slice(11, 16); // "HH:MM"
   const endHM = endsAt ? endsAt.slice(11, 16) : "";
   return endHM ? `${startHM} - ${endHM}` : startHM;
 }
@@ -57,7 +71,9 @@ function parseCapacityMax(capacity: string | null | undefined): number {
   if (!capacity) return 0;
   const nums = capacity.match(/\d+/g);
   if (!nums || nums.length === 0) return 0;
-  return Math.max(...nums.map((n) => parseInt(n, 10)).filter((n) => !Number.isNaN(n)));
+  return Math.max(
+    ...nums.map((n) => parseInt(n, 10)).filter((n) => !Number.isNaN(n))
+  );
 }
 
 // Map capacity filter value from UI to a minimum number of seats
@@ -68,7 +84,7 @@ function getMinCapacityFromFilter(filter: string | null): number | null {
     case "1":
       return 1;
     case "2-4":
-      return 2; // rooms that can handle 2 or more
+      return 2;
     case "4-8":
       return 4;
     case "8+":
@@ -103,6 +119,7 @@ function flattenAndSortSlots(facilities: Facility[]) {
   const items: {
     facilityTitle: string;
     floor: string | null | undefined;
+    capacity: string | null | undefined;
     slot: Slot;
   }[] = [];
 
@@ -111,6 +128,7 @@ function flattenAndSortSlots(facilities: Facility[]) {
       items.push({
         facilityTitle: fac.title,
         floor: fac.floor,
+        capacity: fac.capacity ?? null,
         slot,
       });
     }
@@ -140,23 +158,29 @@ export default function SearchPage() {
     Array.isArray(rawSearch) ? rawSearch[0] : rawSearch || "";
 
   const searchParams = useSearchParams();
-  const startFilter = searchParams.get("start");      // "HH:MM" or null
-  const endFilter = searchParams.get("end");          // "HH:MM" or null
+  const startFilter = searchParams.get("start"); // "HH:MM" or null
+  const endFilter = searchParams.get("end"); // "HH:MM" or null
   const capacityFilter = searchParams.get("capacity"); // "1", "2-4", ...
-
   const minCapacity = getMinCapacityFromFilter(capacityFilter);
 
   const [loading, setLoading] = useState(false);
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<UserRoleState>(null);
-
   const [bookingModal, setBookingModal] =
     useState<BookingModalConfig | null>(null);
 
+  // 🔹 State til forslag (næste dag med ledige slots)
+  const [suggestedDate, setSuggestedDate] = useState<string | null>(null);
+  const [suggestedFacilities, setSuggestedFacilities] = useState<Facility[]>(
+    []
+  );
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
+
   // Hent brugerens rolle
   useEffect(() => {
-    const supabase = getBrowserSupabase();
+    const supabase = getBrowserSupabase() as any;
 
     const loadRole = async () => {
       const {
@@ -169,7 +193,7 @@ export default function SearchPage() {
         return;
       }
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("userlist")
         .select("role")
         .eq("id", user.id)
@@ -224,8 +248,8 @@ export default function SearchPage() {
 
   // Filtrer lærer-only lokaler fra for studerende + kapacitet filter
   const visibleFacilities = useMemo(() => {
-    // 1) Teacher / student access
     let base = facilities;
+
     if (role === "student") {
       base = facilities.filter((f) => {
         const desc = (f.description || "").toLowerCase();
@@ -242,7 +266,6 @@ export default function SearchPage() {
       });
     }
 
-    // 2) Capacity filter (same for students + teachers)
     if (minCapacity == null) return base;
 
     return base.filter((f) => {
@@ -268,90 +291,168 @@ export default function SearchPage() {
 
   const prettySearchDate = useMemo(() => {
     if (!searchDate) return "";
-    const d = new Date(searchDate + "T00:00:00");
-    if (Number.isNaN(d.getTime())) return searchDate;
-
-    let formatted = d.toLocaleDateString("da-DK", {
-      day: "numeric",
-      month: "long",
-    });
-
-    formatted = formatted.replace(
-      /(\d+\.\s*)([a-zæøå])/,
-      (match, prefix, firstLetter) => prefix + firstLetter.toUpperCase()
-    );
-
-    return formatted;
+    return formatDateLabelDa(searchDate);
   }, [searchDate]);
+
+  // 🔹 Når der ikke er nogen tider på dagen → find næste dag med ledige tider
+  useEffect(() => {
+    if (!searchDate) return;
+
+    // Hvis vi stadig loader eller har en fejl → vent
+    if (loading || error) return;
+
+    // Hvis der ER slots til denne dag → ryd forslag og stop
+    if (filteredSlots.length > 0) {
+      setSuggestedDate(null);
+      setSuggestedFacilities([]);
+      setSuggestionsError(null);
+      setSuggestionsLoading(false);
+      return;
+    }
+
+    // Ingen slots → prøv at finde næste dato med ledige tider
+    let cancelled = false;
+
+    const findNextAvailableDay = async () => {
+      try {
+        setSuggestionsLoading(true);
+        setSuggestionsError(null);
+        setSuggestedDate(null);
+        setSuggestedFacilities([]);
+
+        const base = new Date(searchDate + "T00:00:00");
+        if (Number.isNaN(base.getTime())) {
+          setSuggestionsError("Ugyldig dato.");
+          setSuggestionsLoading(false);
+          return;
+        }
+
+        const maxDaysAhead = 30;
+
+        for (let offset = 1; offset <= maxDaysAhead; offset++) {
+          const next = new Date(base);
+          next.setDate(base.getDate() + offset);
+
+          const yyyy = next.getFullYear();
+          const mm = String(next.getMonth() + 1).padStart(2, "0");
+          const dd = String(next.getDate()).padStart(2, "0");
+          const nextDateStr = `${yyyy}-${mm}-${dd}`;
+
+          const res = await fetch(
+            `/api/search?date=${encodeURIComponent(nextDateStr)}`
+          );
+
+          if (!res.ok) {
+            // Hvis der er et problem for en bestemt dag → prøv bare næste
+            continue;
+          }
+
+          const data = (await res.json()) as Facility[];
+
+          if (data.length > 0) {
+            if (cancelled) return;
+            setSuggestedDate(nextDateStr);
+            setSuggestedFacilities(data);
+            setSuggestionsLoading(false);
+            return;
+          }
+        }
+
+        if (!cancelled) {
+          setSuggestionsError(
+            "Vi fandt ingen alternative tider i de næste 30 dage."
+          );
+          setSuggestionsLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Failed to fetch suggestions", err);
+          setSuggestionsError("Kunne ikke hente alternative tider.");
+          setSuggestionsLoading(false);
+        }
+      }
+    };
+
+    findNextAvailableDay();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchDate, filteredSlots, loading, error]);
+
+  // 🔹 Anvend samme synlighedsregler (rolle + kapacitet) på forslagene
+  const suggestedVisibleFacilities = useMemo(() => {
+    if (suggestedFacilities.length === 0) return [];
+
+    let base = suggestedFacilities;
+
+    if (role === "student") {
+      base = suggestedFacilities.filter((f) => {
+        const desc = (f.description || "").toLowerCase();
+        const type = (f.facility_type || "").toLowerCase();
+
+        const isTeacherOnlyDesc =
+          desc.includes("kun lærere") || desc.includes("kun laerere");
+
+        const isTeacherOnlyType =
+          type === "open learning" || type === "undervisning";
+
+        if (isTeacherOnlyDesc || isTeacherOnlyType) return false;
+        return true;
+      });
+    }
+
+    if (minCapacity == null) return base;
+
+    return base.filter((f) => {
+      const maxCap = parseCapacityMax(f.capacity ?? null);
+      return maxCap >= minCapacity;
+    });
+  }, [suggestedFacilities, role, minCapacity]);
+
+  const suggestedSortedSlots = useMemo(
+    () => flattenAndSortSlots(suggestedVisibleFacilities),
+    [suggestedVisibleFacilities]
+  );
+
+  const suggestedGroupedByFacility = useMemo(() => {
+    return suggestedSortedSlots.reduce<
+      Record<
+        string,
+        {
+          facilityTitle: string;
+          floor: string | null | undefined;
+          capacity: string | null | undefined;
+          slot: Slot;
+        }[]
+      >
+    >((acc, item) => {
+      if (!acc[item.facilityTitle]) {
+        acc[item.facilityTitle] = [];
+      }
+      acc[item.facilityTitle].push(item);
+      return acc;
+    }, {});
+  }, [suggestedSortedSlots]);
 
   const handleBookSlot = async (bookingId: string) => {
     try {
-      const supabase = getBrowserSupabase();
+      const result = await bookSlot(bookingId);
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      if (!result.ok) {
+        const msg = getErrorMessage(result.errorKey);
+        const isLoginError = result.errorKey === "BOOKING_LOGIN_REQUIRED";
 
-      if (userError || !user) {
         setBookingModal({
-          title: "Log ind påkrævet",
-          message:
-            "Du skal være logget ind for at booke et lokale. Log ind og prøv igen.",
+          title: isLoginError ? "Log ind påkrævet" : "Kunne ikke booke",
+          message: msg,
           confirmLabel: "OK",
-          cancelLabel: "Annullér",
+          cancelLabel: "Luk",
         });
         return;
       }
 
-      const {
-        data: existingData,
-        error: fetchError,
-      } = await (supabase as any)
-        .from("booking")
-        .select("booking_id, role, owner")
-        .eq("booking_id", bookingId)
-        .maybeSingle();
-
-      const existing = existingData as BookingRow | null;
-
-      if (fetchError || !existing || existing.role !== "available") {
-        setBookingModal({
-          title: "Kunne ikke booke",
-          message: "Tidsrummet er allerede booket af en anden.",
-          confirmLabel: "OK",
-          cancelLabel: "Annullér",
-        });
-        return;
-      }
-
-      const {
-        data: updatedData,
-        error: updateError,
-      } = await (supabase as any)
-        .from("booking")
-        .update({
-          role: "not_available",
-          owner: user.id,
-        })
-        .eq("booking_id", bookingId)
-        .eq("role", "available")
-        .select("*")
-        .maybeSingle();
-
-      const updated = updatedData as BookingRow | null;
-
-      if (updateError || !updated) {
-        setBookingModal({
-          title: "Kunne ikke booke",
-          message:
-            "Tidsrummet kunne ikke bookes. Det kan være, at en anden lige har taget det.",
-          confirmLabel: "OK",
-          cancelLabel: "Annullér",
-        });
-        return;
-      }
-
+      // Success → fjern slot fra UI
       setFacilities((prev) =>
         prev.map((facility) => ({
           ...facility,
@@ -366,7 +467,7 @@ export default function SearchPage() {
         message:
           "Dit lokale er nu booket. Du kan se det under 'Mine bookinger'.",
         confirmLabel: "OK",
-        cancelLabel: "Annullér",
+        cancelLabel: "Luk",
       });
     } catch (err) {
       console.error("Unexpected booking error", err);
@@ -374,7 +475,7 @@ export default function SearchPage() {
         title: "Kunne ikke booke",
         message: "Der opstod en uventet fejl. Prøv igen senere.",
         confirmLabel: "OK",
-        cancelLabel: "Annullér",
+        cancelLabel: "Luk",
       });
     }
   };
@@ -384,7 +485,12 @@ export default function SearchPage() {
     return filteredSlots.reduce<
       Record<
         string,
-        { facilityTitle: string; floor: string | null | undefined; slot: Slot }[]
+        {
+          facilityTitle: string;
+          floor: string | null | undefined;
+          capacity: string | null | undefined;
+          slot: Slot;
+        }[]
       >
     >((acc, item) => {
       if (!acc[item.facilityTitle]) {
@@ -407,40 +513,96 @@ export default function SearchPage() {
       {loading && <p>Henter ledige tider...</p>}
       {error && <p className="mb-4 text-red-600">Fejl: {error}</p>}
 
+      {/* 🔹 Ingen slots → vis tekst + forslag-sektion */}
       {!loading && !error && filteredSlots.length === 0 && (
-        <p className="text-gray-600">
-          Der blev ikke fundet ledige lokaler på denne dato med de valgte
-          filtre.
-        </p>
+        <>
+          <p className="text-gray-600">
+            Der blev ikke fundet ledige lokaler på denne dato med de valgte
+            filtre.
+          </p>
+
+          <section className="mt-8 space-y-4">
+            <h2 className="text-lg font-semibold">Forslag til andre tider</h2>
+
+            {suggestionsLoading && (
+              <p className="text-sm text-gray-500">
+                Finder alternative tider...
+              </p>
+            )}
+
+            {suggestionsError && !suggestionsLoading && (
+              <p className="text-sm text-gray-500">{suggestionsError}</p>
+            )}
+
+            {!suggestionsLoading &&
+              !suggestionsError &&
+              suggestedDate &&
+              suggestedSortedSlots.length > 0 && (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600">
+                    Første ledige dag er{" "}
+                    <span className="font-medium">
+                      {formatDateLabelDa(suggestedDate)}
+                    </span>
+                    .
+                  </p>
+
+                  <div className="space-y-6">
+                    {Object.entries(suggestedGroupedByFacility).map(
+                      ([facilityTitle, group]) => {
+                        const capacityLabel = group[0]?.capacity ?? null;
+
+                        return (
+                          <div
+                            key={facilityTitle}
+                            className="rounded-lg bg-white/60 p-4"
+                          >
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                              {group.map((item) => {
+                                const timeLabel = formatTimeRange(
+                                  item.slot.starts_at,
+                                  item.slot.ends_at ?? null
+                                );
+
+                                return (
+                                  <BookingCard
+                                    key={item.slot.booking_id}
+                                    bookingId={item.slot.booking_id}
+                                    roomName={facilityTitle}
+                                    date={suggestedDate}
+                                    time={timeLabel}
+                                    capacity={capacityLabel || undefined}
+                                    onBook={handleBookSlot}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                </div>
+              )}
+          </section>
+        </>
       )}
 
+      {/* 🔹 Normal liste når der ER slots */}
       {!loading && !error && filteredSlots.length > 0 && (
         <section className="mt-6 space-y-4">
-          <h2 className="text-lg font-semibold">
-            Til studerende og lærere
-          </h2>
+          <h2 className="text-lg font-semibold">Til studerende og lærere</h2>
 
           <div className="space-y-6">
             {Object.entries(groupedByFacility).map(
               ([facilityTitle, group]) => {
-                const floor = group[0]?.floor ?? null;
+                const capacityLabel = group[0]?.capacity ?? null;
 
                 return (
                   <div
                     key={facilityTitle}
-                    className="space-y-3 rounded-lg border border-gray-200 bg-white/60 p-4"
+                    className="rounded-lg bg-white/60 p-4"
                   >
-                    <div className="flex items-baseline justify-between">
-                      <h3 className="text-md font-semibold text-gray-800">
-                        {facilityTitle}
-                      </h3>
-                      {floor && (
-                        <span className="text-xs text-gray-500">
-                          {floor}. sal
-                        </span>
-                      )}
-                    </div>
-
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {group.map((item) => {
                         const timeLabel = formatTimeRange(
@@ -455,6 +617,7 @@ export default function SearchPage() {
                             roomName={facilityTitle}
                             date={searchDate}
                             time={timeLabel}
+                            capacity={capacityLabel || undefined}
                             onBook={handleBookSlot}
                           />
                         );

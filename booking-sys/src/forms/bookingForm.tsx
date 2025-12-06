@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import getBrowserSupabase from "@/src/lib/supabase";
 import { DatePickerInput } from "@mantine/dates";
+import ConfirmationModal from "@/src/components/confirmationModal";
+import { getErrorMessage } from "@/src/lib/errorMessages";
 
 // Generate time options for start (08–14) and end (10–16)
 const generateStartTimeOptions = () => {
@@ -30,10 +32,13 @@ export default function BookingForm() {
   const startTimeOptions = generateStartTimeOptions();
   const endTimeOptions = generateEndTimeOptions();
 
-  // Accept both Date and string, because we’ve seen "2025-12-04" at runtime
+  // Accept both Date and string, because vi har set "2025-12-04" i runtime
   const [dateValue, setDateValue] = useState<Date | string | null>(null);
 
-  // today's date as minimum selectable date
+  // Form-fejl til vores egen modal (fx manglende dato)
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // dagens dato som minimum
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -42,25 +47,26 @@ export default function BookingForm() {
     const form = e.currentTarget;
     const formData = new FormData(form);
 
-    const start = String(formData.get("start") || "").trim();     // "08:00"
-    const end = String(formData.get("end") || "").trim();         // "12:00"
-    const capacity = String(formData.get("capacity") || "").trim(); // "2-4" etc.
+    const start = String(formData.get("start") || "").trim(); // "08:00"
+    const end = String(formData.get("end") || "").trim(); // "12:00"
+    const capacity = String(formData.get("capacity") || "").trim(); // "2-4" osv.
 
     console.log("[BOOKING FORM] raw dateValue on submit:", dateValue);
     console.log("[BOOKING FORM] filters:", { start, end, capacity });
 
-    // 🔹 Validate time range: end must be later than start when both are chosen
+    // 🔹 Validate time range: slut > start
     if (start && end && end <= start) {
       alert("Sluttidspunkt skal være senere end starttidspunkt.");
       return;
     }
 
+    // 🔹 Ingen dato valgt → brug vores egen modal (ikke browser-popup)
     if (!dateValue) {
-      alert("Vælg venligst en dato.");
+      setFormError(getErrorMessage("FORM_DATE_REQUIRED"));
       return;
     }
 
-    // Normalize dateValue to a real JS Date
+    // Normaliser dateValue til en rigtig Date
     let jsDate: Date | null = null;
 
     if (dateValue instanceof Date) {
@@ -71,10 +77,7 @@ export default function BookingForm() {
       if (!Number.isNaN(parsed.getTime())) {
         jsDate = parsed;
       } else {
-        console.error(
-          "[BOOKING FORM] could not parse string date:",
-          dateValue
-        );
+        console.error("[BOOKING FORM] could not parse string date:", dateValue);
         alert("Ugyldig dato valgt.");
         return;
       }
@@ -86,7 +89,7 @@ export default function BookingForm() {
       return;
     }
 
-    // Weekend check (0 = Sunday, 6 = Saturday)
+    // Weekend check (0 = søn, 6 = lør)
     const selectedDay = jsDate.getDay();
     console.log("[BOOKING FORM] selectedDay (0=Sun..6=Sat):", selectedDay);
 
@@ -95,7 +98,7 @@ export default function BookingForm() {
       return;
     }
 
-    // Convert Date → YYYY-MM-DD for slug
+    // Date → "YYYY-MM-DD" til slug
     const year = jsDate.getFullYear();
     const month = String(jsDate.getMonth() + 1).padStart(2, "0");
     const day = String(jsDate.getDate()).padStart(2, "0");
@@ -103,7 +106,7 @@ export default function BookingForm() {
 
     console.log("[BOOKING FORM] final slug dateStr:", dateStr);
 
-    // Decide teacher vs student by email
+    // Find teacher vs student via email
     const supabase = getBrowserSupabase();
     const {
       data: { user },
@@ -134,7 +137,7 @@ export default function BookingForm() {
   }
 
   return (
-    <div>
+    <>
       <form className="space-y-6" onSubmit={onSubmit}>
         <h2 className="mb-6 text-2xl font-bold text-gray-800">
           Book et lokale
@@ -163,7 +166,7 @@ export default function BookingForm() {
             placeholder="Vælg dato"
             minDate={today}
             valueFormat="DD/MM/YYYY"
-            required
+            // ❌ ingen "required" → ingen browser-popup
             classNames={{
               input:
                 "max-w-md px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-500",
@@ -178,7 +181,7 @@ export default function BookingForm() {
               Starttidspunkt
             </span>
             <small className="mb-2 block text-xs text-gray-500">
-              OBS! Du kan maks booke et lokale i 4 timer.
+              Du kan booke i blokke á 2 timer og maks. 4 timer i alt pr. dag.
             </small>
             <select
               name="start"
@@ -201,7 +204,7 @@ export default function BookingForm() {
               Sluttidspunkt
             </span>
             <small className="mb-2 block text-xs text-gray-500">
-              OBS! Du kan maks booke et lokale i 4 timer.
+              Du kan booke i blokke á 2 timer og maks. 4 timer i alt pr. dag.
             </small>
             <select
               name="end"
@@ -217,7 +220,7 @@ export default function BookingForm() {
           </label>
         </div>
 
-        {/* Kapacitet – nu med name="capacity" så den kommer med i URL */}
+        {/* Kapacitet */}
         <div className="space-y-2">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-gray-700">
@@ -244,6 +247,16 @@ export default function BookingForm() {
           Søg
         </button>
       </form>
-    </div>
+
+      {/* Modal til form-fejl (fx manglende dato) */}
+      <ConfirmationModal
+        isOpen={formError !== null}
+        title="Dato mangler"
+        message={formError ?? ""}
+        confirmLabel="OK"
+        onConfirm={() => setFormError(null)}
+        onClose={() => setFormError(null)}
+      />
+    </>
   );
 }

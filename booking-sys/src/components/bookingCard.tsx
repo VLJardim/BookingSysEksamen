@@ -1,16 +1,16 @@
-// src/components/bookingCard.tsx
 "use client";
 
-import { Card, Text, Badge } from "@mantine/core";
+import { Card, Text } from "@mantine/core";
 
 interface BookingCardProps {
   bookingId: string;                  // hvilket konkret slot vi booker
   roomName: string;
   date: string;                       // kan være "YYYY-MM-DD" eller allerede formateret tekst
-  time: string;
+  time: string;                       // fx "10:00 - 12:00"
+  capacity?: string | null;           // kapacitetstekst, fx "3-4 pers"
   onBook?: (bookingId: string) => void;
   actionLabel?: string;               // valgfrit: tekst på knappen
-  notice?: string;                    // valgfrit: ekstra tekst inde i kortet (fx "Allerede booket ...")
+  notice?: string;                    // valgfrit: ekstra tekst (fx "Allerede booket ...")
 }
 
 export default function BookingCard({
@@ -18,6 +18,7 @@ export default function BookingCard({
   roomName,
   date,
   time,
+  capacity,
   onBook,
   actionLabel,
   notice,
@@ -54,6 +55,9 @@ export default function BookingCard({
     return date;
   })();
 
+  const capacityLabel =
+    capacity && capacity.trim().length > 0 ? capacity : "Ukendt";
+
   return (
     <Card
       shadow="sm"
@@ -62,19 +66,28 @@ export default function BookingCard({
       withBorder
       className="flex h-full flex-col justify-between"
     >
-      <div>
-        <Text fw={500} size="lg" className="mb-1">
-          {roomName}
-        </Text>
-
-        <Text size="sm" c="dimmed" className="mb-2">
+      <div className="space-y-1">
+        {/* 1) Dato + tidsrum */}
+        <Text size="md" c="dimmed">
           {prettyDate}
         </Text>
 
-        <Badge color="blue" variant="light">
-          {time}
-        </Badge>
+        {/* 2) Lokale-navn */}
+        <Text fw={600} size="lg">
+          Lokale: {roomName}
+        </Text>
 
+        {/* 3) tidsrum */}
+        <Text size="sm" className="text-gray-700">
+          Tidsrum: {time}
+        </Text>
+
+        {/* 4) Kapacitet */}
+        <Text size="sm" className="text-gray-700">
+          Kapacitet: {capacityLabel}
+        </Text>
+
+        {/* Evt. ekstra notice */}
         {notice && (
           <Text size="xs" c="red" className="mt-2">
             {notice}
@@ -82,6 +95,7 @@ export default function BookingCard({
         )}
       </div>
 
+      {/* 4) Book-knap */}
       <button
         type="button"
         onClick={handleClick}

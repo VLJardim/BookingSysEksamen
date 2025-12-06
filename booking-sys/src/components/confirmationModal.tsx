@@ -42,17 +42,30 @@ export default function ConfirmationModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose} // klik på overlay lukker
+    >
       <div
         className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()} // men ikke når man klikker inde i boksen
       >
         <h2 className="mb-3 text-xl font-semibold text-gray-900">{title}</h2>
-        <p className="mb-6 text-sm text-gray-700 whitespace-pre-line">
+        <p className="mb-6 whitespace-pre-line text-sm text-gray-700">
           {message}
         </p>
 
         <div className="flex justify-end gap-3">
+          {/* Fortryd / luk-knap */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full bg-gray-200 px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
+          >
+            {cancelLabel}
+          </button>
+
+          {/* Bekræft-knap */}
           <button
             type="button"
             onClick={handleConfirm}

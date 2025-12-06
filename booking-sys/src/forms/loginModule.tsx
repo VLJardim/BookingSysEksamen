@@ -1,66 +1,40 @@
-'use client';
+// src/forms/loginModule.tsx
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import getBrowserSupabase from '@/src/lib/supabase';
-
-// Vi fortæller TypeScript hvordan en række fra userlist ser ud
-type UserRoleRow = {
-  role: 'student' | 'teacher';
-};
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { login } from "@/src/lib/authApi";
+import { getErrorMessage } from "@/src/lib/errorMessages";
 
 export default function LoginForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
-      const supabase = getBrowserSupabase();
+      const result = await login(email, password);
 
-      // 1) Log brugeren ind
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      const user = data.user;
-      if (!user) {
-        throw new Error('Kunne ikke finde bruger efter login.');
+      if (!result.ok) {
+        setError(getErrorMessage(result.errorKey));
+        return;
       }
 
-      // 2) Hent rolle fra userlist (DB er "source of truth")
-      const { data: userlistRow, error: userlistError } = await supabase
-        .from('userlist')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle<UserRoleRow>(); // <-- vigtig ændring
-
-      if (userlistError) {
-        console.error(userlistError);
-        throw new Error('Kunne ikke hente brugerens rolle.');
-      }
-
-      const role = userlistRow?.role;
-
-      // 3) Redirect baseret på rolle
-      if (role === 'teacher') {
-        router.push('/teacher-home');
-      } else if (role === 'student') {
-        router.push('/student-home');
+      // Redirect baseret på rolle
+      if (result.role === "teacher") {
+        router.push("/teacher-home");
       } else {
-        throw new Error('Brugeren har ingen gyldig rolle tilknyttet.');
+        router.push("/student-home");
       }
-    } catch (err: any) {
-      setError(err.message || 'Login fejlede.');
+    } catch (err) {
+      console.error("[LoginForm] Unexpected error", err);
+      setError("Noget gik galt under login. Prøv igen.");
     } finally {
       setLoading(false);
     }
@@ -84,7 +58,7 @@ export default function LoginForm() {
             Denne e-mail skal være tilknyttet en uddannelse.
           </small>
           <span className="block text-sm font-medium text-gray-700 mt-1">
-            E-mail adresse 
+            E-mail adresse
             <span className="text-red-600"> *</span>
           </span>
           <input
@@ -101,7 +75,7 @@ export default function LoginForm() {
       <div className="space-y-2">
         <label className="block">
           <span className="block text-sm font-medium text-gray-700">
-            Adgangskode 
+            Adgangskode
             <span className="text-red-600"> *</span>
           </span>
           <input
@@ -135,12 +109,12 @@ export default function LoginForm() {
           disabled={loading}
           className="bg-[#1864AB] text-white py-2 px-4 rounded-full hover:bg-[#4E7CD9] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed font-medium"
         >
-          {loading ? 'Logger ind...' : 'Log ind'}
+          {loading ? "Logger ind..." : "Log ind"}
         </button>
 
         <button
           type="button"
-          onClick={() => (window.location.href = '/register')}
+          onClick={() => (window.location.href = "/register")}
           className="bg-gray-600 text-white py-2 px-4 rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors font-medium"
         >
           Opret ny konto

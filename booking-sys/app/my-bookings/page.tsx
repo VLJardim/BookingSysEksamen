@@ -2,9 +2,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import getBrowserSupabase from "@/src/lib/supabase";
 import ConfirmationModal from "@/src/components/confirmationModal";
+import { cancelBooking } from "@/src/lib/bookingApi";
+import { getErrorMessage } from "@/src/lib/errorMessages";
+import BookingCard from "@/src/components/bookingCard";
 
 type Booking = {
   booking_id: string;
@@ -13,8 +15,51 @@ type Booking = {
   ends_at: string | null;
 };
 
+// 🔹 Fælles helper, så vi formaterer dato/tid/lokale ens
+function getBookingDisplayFields(booking: Booking) {
+  // ISO-dato "YYYY-MM-DD" til BookingCard
+  const dateIso = booking.starts_at.split("T")[0] ?? "";
+
+  const extractHHMM = (iso: string) => {
+    const timePart = iso.split("T")[1] ?? "";
+    return timePart.slice(0, 5); // "HH:MM"
+  };
+
+  const startTime = extractHHMM(booking.starts_at);
+  const endTime = booking.ends_at ? extractHHMM(booking.ends_at) : "";
+  const timeRange = endTime ? `${startTime} - ${endTime}` : startTime;
+
+  // Lokalenavn fra title før " – "
+  let facilityName = booking.title;
+  const titleMatch = booking.title.match(/^(.+?)\s*–/);
+  if (titleMatch) {
+    facilityName = titleMatch[1];
+  }
+
+  // Dato som "4. December"
+  const startDate = new Date(booking.starts_at);
+  let dateStr = startDate.toLocaleDateString("da-DK", {
+    month: "long",
+    day: "numeric",
+    timeZone: "Europe/Copenhagen",
+  });
+  dateStr = dateStr.replace(
+    /(\d+\.\s*)([a-z])/,
+    (match, prefix, firstLetter) => prefix + firstLetter.toUpperCase()
+  );
+
+  return { dateIso, timeRange, facilityName, dateStr };
+}
+
+// 🔹 Tekst til modalens "kort-agtige" hierarki
+function buildModalMessage(booking: Booking) {
+  const { dateStr, timeRange, facilityName } = getBookingDisplayFields(booking);
+
+  // Samme rækkefølge som BookingCard: dato → lokale → tid
+  return `Dato: ${dateStr}\nLokale: ${facilityName}\nTid: ${timeRange}`;
+}
+
 export default function MyBookingsPage() {
-  const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
@@ -27,7 +72,7 @@ export default function MyBookingsPage() {
   // 1) Find current user id
   useEffect(() => {
     const fetchUser = async () => {
-      const supabase = getBrowserSupabase();
+      const supabase = getBrowserSupabase() as any;
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -54,9 +99,9 @@ export default function MyBookingsPage() {
         setLoading(true);
         setError(null);
 
-        const supabase = getBrowserSupabase();
+        const supabase = getBrowserSupabase() as any;
         const nowISO = new Date().toISOString();
-        
+
         const { data, error } = await supabase
           .from("booking")
           .select("*")
@@ -90,7 +135,15 @@ export default function MyBookingsPage() {
     setBookingToCancel(null);
   };
 
-  // 3) Annuller booking direkte via Supabase (ikke længere via /api/bookings/:id)
+  // Når der klikkes på "Fortryd" knappen i BookingCard
+  const handleCardAction = (bookingId: string) => {
+    const booking = bookings.find((b) => b.booking_id === bookingId);
+    if (booking) {
+      openCancelModal(booking);
+    }
+  };
+
+  // 3) Annuller/fortryd booking via bookingApi
   const handleConfirmCancel = async () => {
     if (!bookingToCancel) return;
 
@@ -98,38 +151,15 @@ export default function MyBookingsPage() {
       setCancelLoading(true);
       setError(null);
 
-      const supabase = getBrowserSupabase();
+      const result = await cancelBooking(bookingToCancel.booking_id);
 
-      // 3.1: Tjek at brugeren er logget ind
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        setError("Du skal være logget ind for at annullere en booking.");
+      if (!result.ok) {
+        const msg = getErrorMessage(result.errorKey);
+        setError(msg);
         return;
       }
 
-      // 3.2: Sæt tidsrummet tilbage til available og ryd owner
-      const { data, error } = await (supabase as any)
-        .from("booking")
-        .update({
-          role: "available",
-          owner: null,
-        })
-        .eq("booking_id", bookingToCancel.booking_id)
-        .eq("owner", user.id) // sikkerhed: kun dine egne bookinger
-        .select("booking_id")
-        .maybeSingle();
-
-      if (error || !data) {
-        console.error("Cancel booking error", error);
-        setError("Det lykkedes ikke at annullere bookingen.");
-        return;
-      }
-
-      // 3.3: Success → fjern booking fra UI
+      // Success → fjern booking fra UI
       setBookings((prev) =>
         prev.filter((b) => b.booking_id !== bookingToCancel.booking_id)
       );
@@ -143,7 +173,7 @@ export default function MyBookingsPage() {
   };
 
   return (
-    <div className="bg-gray-50 py-8 px-4 min-h-screen">
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="mx-auto max-w-4xl">
         <h1 className="mb-6 text-3xl font-bold">Mine bookinger</h1>
 
@@ -155,80 +185,34 @@ export default function MyBookingsPage() {
         )}
 
         {!loading && !error && bookings.length > 0 && (
-          <div className="grid gap-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {bookings.map((booking) => {
-              const startDate = new Date(booking.starts_at);
-              const endDate = booking.ends_at ? new Date(booking.ends_at) : null;
-              
-              // Format date as "2. December" (day + month name)
-              let dateStr = startDate.toLocaleDateString("da-DK", {
-                month: "long",
-                day: "numeric",
-                timeZone: "Europe/Copenhagen"
-              });
-              // Capitalize month name (after "day. ")
-              dateStr = dateStr.replace(/(\d+\.\s*)([a-z])/, (match, prefix, firstLetter) => 
-                prefix + firstLetter.toUpperCase()
-              );
-              
-              // Format time range as "12:00-14:00" (extract HH:MM from ISO string)
-              const formatTime = (iso: string) => {
-                const timePart = iso.split("T")[1] ?? "";
-                return timePart.slice(0, 5); // "HH:MM"
-              };
-              
-              const startTime = formatTime(booking.starts_at);
-              const endTime = booking.ends_at ? formatTime(booking.ends_at) : "Ikke angivet";
-              const timeRange = booking.ends_at ? `${startTime}-${endTime}` : startTime;
-              
-              // Extract just the facility name from title: "3.6 – 2025-12-02 08:00" becomes "3.6"
-              let facilityName = booking.title;
-              const titleMatch = booking.title.match(/^(.+?)\s*–/);
-              if (titleMatch) {
-                facilityName = titleMatch[1];
-              }
-              
-              return (
-                <div
-                  key={booking.booking_id}
-                  className="flex items-center justify-between rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow"
-                >
-                  <div>
-                    <h3 className="mb-2 text-xl font-semibold">
-                      {facilityName}
-                    </h3>
-                    <p className="text-gray-600">{dateStr}</p>
-                    <p className="text-gray-600">{timeRange}</p>
-                  </div>
+              const { dateIso, timeRange, facilityName } =
+                getBookingDisplayFields(booking);
 
-                  <button
-                    type="button"
-                    onClick={() => openCancelModal(booking)}
-                    className="rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
-                  >
-                    Annuller booking
-                  </button>
-                </div>
+              return (
+                <BookingCard
+                  key={booking.booking_id}
+                  bookingId={booking.booking_id}
+                  roomName={facilityName}
+                  date={dateIso}
+                  time={timeRange}
+                  actionLabel="Fortryd"
+                  onBook={handleCardAction}
+                />
               );
             })}
           </div>
         )}
       </div>
 
-      {/* Modal til bekræftelse af annullering */}
+      {/* Modal til bekræftelse af fortrydelse */}
       <ConfirmationModal
         isOpen={bookingToCancel !== null}
-        title="Annuller booking?"
-        message={
-          bookingToCancel
-            ? `Er du sikker på, at du vil annullere bookingen af "${bookingToCancel.title}"?\n\nStart: ${new Date(
-                bookingToCancel.starts_at
-              ).toLocaleString("da-DK")}`
-            : ""
-        }
-        confirmLabel={cancelLoading ? "Annullerer..." : "Ja, annuller"}
+        title="Fortryd booking?"
+        message={bookingToCancel ? buildModalMessage(bookingToCancel) : ""}
+        confirmLabel={cancelLoading ? "Fortryder..." : "Fortryd booking"}
         cancelLabel="Behold booking"
-        confirmVariant="danger"
         onConfirm={cancelLoading ? undefined : handleConfirmCancel}
         onClose={handleCloseModal}
       />
