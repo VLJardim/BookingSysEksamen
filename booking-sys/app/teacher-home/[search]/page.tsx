@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import BookingCard from "@/src/components/bookingCard";
 import ConfirmationModal from "@/src/components/confirmationModal";
 import { formatBookingInterval } from "@/src/utils/time";
-import { bookSlot } from "@/src/lib/bookingApi";
+import { bookSlot, cancelBooking } from "@/src/lib/bookingApi";
 import { getErrorMessage } from "@/src/lib/errorMessages";
 
 type RouteParams = { search: string };
@@ -34,6 +34,9 @@ type BookingModalConfig = {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  confirmVariant?: "primary" | "danger";
+  onConfirm?: () => void;
+  onCancel?: () => void;
 };
 
 function sortFacilitiesByFloorThenTitle(facilities: Facility[]): Facility[] {
@@ -175,35 +178,36 @@ export default function TeacherSearchPage() {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Genbrugelig fetch-funktion til nuværende dato (teacher-mode)
+  const fetchFacilitiesForCurrentDate = async () => {
     if (!searchDate) return;
 
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    try {
+      setLoading(true);
+      setError(null);
 
-        const res = await fetch(
-          `/api/search?date=${encodeURIComponent(searchDate)}&mode=teacher`
+      const res = await fetch(
+        `/api/search?date=${encodeURIComponent(searchDate)}&mode=teacher`
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          body.error || `Fejl ved hentning af lokaler (status ${res.status})`
         );
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(
-            body.error ||
-              `Fejl ved hentning af lokaler (status ${res.status})`
-          );
-        }
-
-        const data = (await res.json()) as Facility[];
-        setFacilities(data);
-      } catch (err: any) {
-        setError(err.message || "Ukendt fejl");
-      } finally {
-        setLoading(false);
       }
-    };
 
-    fetchData();
+      const data = (await res.json()) as Facility[];
+      setFacilities(data);
+    } catch (err: any) {
+      setError(err.message || "Ukendt fejl");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!searchDate) return;
+    void fetchFacilitiesForCurrentDate();
   }, [searchDate]);
 
   const prettySearchDate = useMemo(() => {
@@ -388,7 +392,7 @@ export default function TeacherSearchPage() {
       }
     };
 
-    findNextAvailableDay();
+    void findNextAvailableDay();
 
     return () => {
       cancelled = true;
@@ -452,11 +456,30 @@ export default function TeacherSearchPage() {
         ? "Dit lokale er nu booket."
         : "Du har nu overtaget denne booking.";
 
+      // Modal med mulighed for at fortryde (gøre tidsrummet ledigt igen)
       setBookingModal({
         title: "Booking gennemført",
         message: successMessage,
         confirmLabel: "OK",
-        cancelLabel: "Luk",
+        cancelLabel: "Fortryd",
+        onConfirm: () => setBookingModal(null),
+        onCancel: async () => {
+          const undo = await cancelBooking(bookingId);
+
+          if (!undo.ok) {
+            const msg = getErrorMessage(undo.errorKey);
+            setBookingModal({
+              title: "Kunne ikke fortryde booking",
+              message: msg,
+              confirmLabel: "OK",
+              cancelLabel: "Luk",
+            });
+            return;
+          }
+
+          await fetchFacilitiesForCurrentDate();
+          setBookingModal(null);
+        },
       });
     } catch (err) {
       console.error("Unexpected booking error", err);
@@ -638,6 +661,9 @@ export default function TeacherSearchPage() {
         message={bookingModal?.message ?? ""}
         confirmLabel={bookingModal?.confirmLabel}
         cancelLabel={bookingModal?.cancelLabel}
+        confirmVariant={bookingModal?.confirmVariant}
+        onConfirm={bookingModal?.onConfirm}
+        onCancel={bookingModal?.onCancel}
         onClose={() => setBookingModal(null)}
       />
     </main>

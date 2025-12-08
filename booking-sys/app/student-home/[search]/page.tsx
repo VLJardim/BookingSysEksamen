@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import BookingCard from "@/src/components/bookingCard";
 import getBrowserSupabase from "@/src/lib/supabase";
 import ConfirmationModal from "@/src/components/confirmationModal";
-import { bookSlot } from "@/src/lib/bookingApi";
+import { bookSlot, cancelBooking } from "@/src/lib/bookingApi";
 import { getErrorMessage } from "@/src/lib/errorMessages";
 
 type RouteParams = { search: string };
@@ -39,6 +39,9 @@ type BookingModalConfig = {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  confirmVariant?: "primary" | "danger";
+  onConfirm?: () => void;
+  onCancel?: () => void;
 };
 
 // 🔹 Fælles helper: format "YYYY-MM-DD" → "4. December"
@@ -214,36 +217,37 @@ export default function SearchPage() {
     });
   }, []);
 
+  // 🔹 Genbrugelig fetch-funktion til nuværende dato
+  const fetchFacilitiesForCurrentDate = async () => {
+    if (!searchDate) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const res = await fetch(
+        `/api/search?date=${encodeURIComponent(searchDate)}`
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          body.error || `Fejl ved hentning af lokaler (status ${res.status})`
+        );
+      }
+
+      const data = (await res.json()) as Facility[];
+      setFacilities(data);
+    } catch (err: any) {
+      setError(err.message || "Ukendt fejl");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Hent slots for datoen
   useEffect(() => {
     if (!searchDate) return;
-
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const res = await fetch(
-          `/api/search?date=${encodeURIComponent(searchDate)}`
-        );
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(
-            body.error ||
-              `Fejl ved hentning af lokaler (status ${res.status})`
-          );
-        }
-
-        const data = (await res.json()) as Facility[];
-        setFacilities(data);
-      } catch (err: any) {
-        setError(err.message || "Ukendt fejl");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    void fetchFacilitiesForCurrentDate();
   }, [searchDate]);
 
   // Filtrer lærer-only lokaler fra for studerende + kapacitet filter
@@ -373,7 +377,7 @@ export default function SearchPage() {
       }
     };
 
-    findNextAvailableDay();
+    void findNextAvailableDay();
 
     return () => {
       cancelled = true;
@@ -462,12 +466,31 @@ export default function SearchPage() {
         }))
       );
 
+      // Success-modal med mulighed for at fortryde
       setBookingModal({
         title: "Booking gennemført",
         message:
           "Dit lokale er nu booket. Du kan se det under 'Mine bookinger'.",
         confirmLabel: "OK",
-        cancelLabel: "Luk",
+        cancelLabel: "Fortryd",
+        onConfirm: () => setBookingModal(null),
+        onCancel: async () => {
+          const undo = await cancelBooking(bookingId);
+
+          if (!undo.ok) {
+            const msg = getErrorMessage(undo.errorKey);
+            setBookingModal({
+              title: "Kunne ikke fortryde booking",
+              message: msg,
+              confirmLabel: "OK",
+              cancelLabel: "Luk",
+            });
+            return;
+          }
+
+          await fetchFacilitiesForCurrentDate();
+          setBookingModal(null);
+        },
       });
     } catch (err) {
       console.error("Unexpected booking error", err);
@@ -637,6 +660,9 @@ export default function SearchPage() {
         message={bookingModal?.message ?? ""}
         confirmLabel={bookingModal?.confirmLabel}
         cancelLabel={bookingModal?.cancelLabel}
+        confirmVariant={bookingModal?.confirmVariant}
+        onConfirm={bookingModal?.onConfirm}
+        onCancel={bookingModal?.onCancel}
         onClose={() => setBookingModal(null)}
       />
     </main>
