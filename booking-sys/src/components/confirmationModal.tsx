@@ -13,6 +13,7 @@ interface ConfirmationModalProps {
   cancelLabel?: string;
   confirmVariant?: ConfirmationVariant;
   onConfirm?: () => void;
+  onCancel?: () => void;        // 🔹 NY: separat handler til cancel-knappen
   onClose: () => void;
 }
 
@@ -21,9 +22,10 @@ export default function ConfirmationModal({
   title,
   message,
   confirmLabel = "OK",
-  cancelLabel = "Annullér",
+  cancelLabel = "Fortryd",
   confirmVariant = "primary",
   onConfirm,
+  onCancel,
   onClose,
 }: ConfirmationModalProps) {
   if (!isOpen) return null;
@@ -46,14 +48,22 @@ export default function ConfirmationModal({
     }
   };
 
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
+    } else {
+      onClose();
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={onClose} // klik på overlay lukker
+      onClick={onClose} // klik på overlay lukker altid bare
     >
       <div
         className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg"
-        onClick={(e) => e.stopPropagation()} // men ikke når man klikker inde i boksen
+        onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-3 text-xl font-semibold text-gray-900">{title}</h2>
         <p className="mb-6 whitespace-pre-line text-sm text-gray-700">
@@ -61,11 +71,11 @@ export default function ConfirmationModal({
         </p>
 
         <div className="flex justify-end gap-3">
-          {/* Fortryd / luk-knap */}
+          {/* Cancel / Fortryd-knap */}
           <button
             type="button"
             onClick={onClose}
-            className={`rounded-full px-4 py-2 text-sm font-medium text-white focus:outline-none focus:ring-2 transition-colors ${cancelClasses}`}
+            className="rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
           >
             {cancelLabel}
           </button>
