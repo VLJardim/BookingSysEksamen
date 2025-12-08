@@ -211,8 +211,9 @@ export default function MyBookingsPage() {
         isOpen={bookingToCancel !== null}
         title="Fortryd booking?"
         message={bookingToCancel ? buildModalMessage(bookingToCancel) : ""}
-        confirmLabel={cancelLoading ? "Fortryder..." : "Fortryd booking"}
-        cancelLabel="Behold booking"
+        confirmLabel={cancelLoading ? "Fortryder..." : "Ja, fortryd"}
+        cancelLabel="Nej, behold"
+        confirmVariant="danger"
         onConfirm={cancelLoading ? undefined : handleConfirmCancel}
         onClose={handleCloseModal}
       />

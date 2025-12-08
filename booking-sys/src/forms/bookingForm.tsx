@@ -169,7 +169,7 @@ export default function BookingForm() {
             // ❌ ingen "required" → ingen browser-popup
             classNames={{
               input:
-                "max-w-md px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-500",
+                "w-full max-w-xs px-3 py-2 border border-gray-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-500",
             }}
           />
         </div>

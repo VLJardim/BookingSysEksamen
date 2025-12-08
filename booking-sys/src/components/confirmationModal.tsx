@@ -33,6 +33,11 @@ export default function ConfirmationModal({
       ? "bg-red-600 hover:bg-red-700 focus:ring-red-500"
       : "bg-[#1864AB] hover:bg-[#4E7CD9] focus:ring-blue-500";
 
+  const cancelClasses =
+    confirmVariant === "danger"
+      ? "bg-[#1864AB] hover:bg-[#4E7CD9] focus:ring-blue-500"
+      : "bg-red-600 hover:bg-red-700 focus:ring-red-500";
+
   const handleConfirm = () => {
     if (onConfirm) {
       onConfirm();
@@ -60,7 +65,7 @@ export default function ConfirmationModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+            className={`rounded-full px-4 py-2 text-sm font-medium text-white focus:outline-none focus:ring-2 transition-colors ${cancelClasses}`}
           >
             {cancelLabel}
           </button>

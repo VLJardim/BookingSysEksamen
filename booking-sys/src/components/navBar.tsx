@@ -75,7 +75,6 @@ export default function NavBar({ showLinks = true }: NavBarProps) {
             <IconUser size={24} className="text-green-600" />
             <span className="text-gray-900">
               <span className="font-medium">Profil</span>
-              {userName && <span className="text-[12px] text-gray-600"> {userName}</span>}
             </span>
           </button>
         </Stack>
