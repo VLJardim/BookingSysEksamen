@@ -13,11 +13,13 @@ type Booking = {
   title: string;
   starts_at: string;
   ends_at: string | null;
+  facility?: {
+    capacity?: string | null;
+  } | null;
 };
 
 // 🔹 Fælles helper, så vi formaterer dato/tid/lokale ens
 function getBookingDisplayFields(booking: Booking) {
-  // ISO-dato "YYYY-MM-DD" til BookingCard
   const dateIso = booking.starts_at.split("T")[0] ?? "";
 
   const extractHHMM = (iso: string) => {
@@ -29,14 +31,12 @@ function getBookingDisplayFields(booking: Booking) {
   const endTime = booking.ends_at ? extractHHMM(booking.ends_at) : "";
   const timeRange = endTime ? `${startTime} - ${endTime}` : startTime;
 
-  // Lokalenavn fra title før " – "
   let facilityName = booking.title;
   const titleMatch = booking.title.match(/^(.+?)\s*–/);
   if (titleMatch) {
     facilityName = titleMatch[1];
   }
 
-  // Dato som "4. December"
   const startDate = new Date(booking.starts_at);
   let dateStr = startDate.toLocaleDateString("da-DK", {
     month: "long",
@@ -48,15 +48,22 @@ function getBookingDisplayFields(booking: Booking) {
     (match, prefix, firstLetter) => prefix + firstLetter.toUpperCase()
   );
 
-  return { dateIso, timeRange, facilityName, dateStr };
+  const capacityLabel = booking.facility?.capacity ?? undefined;
+
+  return { dateIso, timeRange, facilityName, dateStr, capacityLabel };
 }
 
 // 🔹 Tekst til modalens "kort-agtige" hierarki
 function buildModalMessage(booking: Booking) {
-  const { dateStr, timeRange, facilityName } = getBookingDisplayFields(booking);
+  const { dateStr, timeRange, facilityName, capacityLabel } =
+    getBookingDisplayFields(booking);
 
-  // Samme rækkefølge som BookingCard: dato → lokale → tid
-  return `Dato: ${dateStr}\nLokale: ${facilityName}\nTid: ${timeRange}`;
+  return (
+    `Dato: ${dateStr}\n` +
+    `Lokale: ${facilityName}\n` +
+    `Tid: ${timeRange}` +
+    (capacityLabel ? `\nKapacitet: ${capacityLabel}` : "")
+  );
 }
 
 export default function MyBookingsPage() {
@@ -65,7 +72,6 @@ export default function MyBookingsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Modal state for cancelling a booking
   const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
 
@@ -90,7 +96,7 @@ export default function MyBookingsPage() {
     });
   }, []);
 
-  // 2) Hent brugerens bookinger
+  // 2) Hent brugerens bookinger + facility (kapacitet)
   useEffect(() => {
     if (!userId) return;
 
@@ -104,7 +110,17 @@ export default function MyBookingsPage() {
 
         const { data, error } = await supabase
           .from("booking")
-          .select("*")
+          .select(
+            `
+            booking_id,
+            title,
+            starts_at,
+            ends_at,
+            facility:facility_id (
+              capacity
+            )
+          `
+          )
           .eq("owner", userId)
           .gte("ends_at", nowISO)
           .order("starts_at", { ascending: true });
@@ -135,7 +151,6 @@ export default function MyBookingsPage() {
     setBookingToCancel(null);
   };
 
-  // Når der klikkes på "Fortryd" knappen i BookingCard
   const handleCardAction = (bookingId: string) => {
     const booking = bookings.find((b) => b.booking_id === bookingId);
     if (booking) {
@@ -159,7 +174,6 @@ export default function MyBookingsPage() {
         return;
       }
 
-      // Success → fjern booking fra UI
       setBookings((prev) =>
         prev.filter((b) => b.booking_id !== bookingToCancel.booking_id)
       );
@@ -187,7 +201,7 @@ export default function MyBookingsPage() {
         {!loading && !error && bookings.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {bookings.map((booking) => {
-              const { dateIso, timeRange, facilityName } =
+              const { dateIso, timeRange, facilityName, capacityLabel } =
                 getBookingDisplayFields(booking);
 
               return (
@@ -197,6 +211,7 @@ export default function MyBookingsPage() {
                   roomName={facilityName}
                   date={dateIso}
                   time={timeRange}
+                  capacity={capacityLabel}
                   actionLabel="Fortryd"
                   onBook={handleCardAction}
                 />
@@ -206,13 +221,12 @@ export default function MyBookingsPage() {
         )}
       </div>
 
-      {/* Modal til bekræftelse af fortrydelse */}
       <ConfirmationModal
         isOpen={bookingToCancel !== null}
         title="Fortryd booking?"
         message={bookingToCancel ? buildModalMessage(bookingToCancel) : ""}
         confirmLabel={cancelLoading ? "Fortryder..." : "Ja, fortryd"}
-        cancelLabel="Nej, behold"
+        cancelLabel="Behold booking"
         confirmVariant="danger"
         onConfirm={cancelLoading ? undefined : handleConfirmCancel}
         onClose={handleCloseModal}
