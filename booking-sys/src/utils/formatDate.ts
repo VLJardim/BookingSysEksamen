@@ -9,7 +9,7 @@ export function toDate(input: string | Date): Date | null {
  * - input: ISO string or Date
  * - locale: default 'en-US' (change to match your users, e.g. 'da-DK')
  */
-export function formatDate(input: string | Date, locale = 'en-US'): string {
+export function formatDate(input: string | Date, locale = 'da-DK'): string {
   const d = toDate(input);
   if (!d) return 'Invalid date';
 
@@ -23,7 +23,7 @@ export function formatDate(input: string | Date, locale = 'en-US'): string {
 /**
  * Format both date + time (no seconds): `MM/DD/YYYY, HH:MM AM/PM` (locale-aware)
  */
-export function formatDateTime(input: string | Date, locale = 'en-US'): string {
+export function formatDateTime(input: string | Date, locale = 'da-DK'): string {
   const d = toDate(input);
   if (!d) return 'Invalid date';
 
@@ -39,7 +39,7 @@ export function formatDateTime(input: string | Date, locale = 'en-US'): string {
 /**
  * Short date like `Nov 24` (useful in compact UI)
  */
-export function formatDateShort(input: string | Date, locale = 'en-US'): string {
+export function formatDateShort(input: string | Date, locale = 'da-DK'): string {
   const d = toDate(input);
   if (!d) return 'Invalid date';
 
@@ -52,7 +52,7 @@ export function formatDateShort(input: string | Date, locale = 'en-US'): string 
 /**
  * Time only: `HH:MM AM/PM` (no seconds)
  */
-export function formatTime(input: string | Date, locale = 'en-US'): string {
+export function formatTime(input: string | Date, locale = 'da-DK'): string {
   const d = toDate(input);
   if (!d) return 'Invalid time';
 
