@@ -26,15 +26,20 @@ This repository contains a full-stack booking system where you can:
 
 ## 📖 Complete Documentation
 
-For a comprehensive guide on what this system can do, see **[CAPABILITIES.md](./CAPABILITIES.md)**
+**📋 [Documentation Index](./DOCS_INDEX.md)** - Find the right documentation for your needs
 
-This document covers:
+**Key Documents:**
+- **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** - Quick start guide for developers
+- **[CAPABILITIES.md](./CAPABILITIES.md)** - Complete feature documentation
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System architecture and diagrams
+
+The documentation covers:
 - Full technology stack details
-- System architecture
+- System architecture with diagrams
 - Available features for each user type
-- Development guidelines
-- Database schema
-- API endpoints
+- Development guidelines and code examples
+- Database schema and data flows
+- API endpoints and usage
 - Future enhancement possibilities
 
 ## 🚀 Quick Start
@@ -78,8 +83,11 @@ npm run lint     # Run ESLint
 
 ## 📚 Learn More
 
-- See [CAPABILITIES.md](./CAPABILITIES.md) for full system documentation
-- See [booking-sys/README.md](./booking-sys/README.md) for Next.js specific details
+- **[DOCS_INDEX.md](./DOCS_INDEX.md)** - Documentation index and navigation guide
+- **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** - Developer quick reference
+- **[CAPABILITIES.md](./CAPABILITIES.md)** - Full system capabilities
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System architecture
+- **[booking-sys/README.md](./booking-sys/README.md)** - Next.js specific details
 
 ## 🎯 Purpose
 
@@ -92,4 +100,4 @@ This is an exam project demonstrating modern full-stack web development with:
 
 ---
 
-**Need help?** Check [CAPABILITIES.md](./CAPABILITIES.md) for detailed information about what you can do with this system!
+**Need help?** Check the **[Documentation Index](./DOCS_INDEX.md)** to find what you're looking for!
